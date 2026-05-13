@@ -4,6 +4,7 @@ import { Heart, Bookmark, MessageCircle, GraduationCap, School, Brain, Target } 
 
 export interface Profile {
   id: string;
+  profile_id?: string;
   name: string;
   age?: number;
   gender: string;

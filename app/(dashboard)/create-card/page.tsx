@@ -206,16 +206,16 @@ export default function CreateCardPage() {
     setSubmitError(null);
 
     const { error } = await supabase
-      .from("profiles")
-      .update({
+      .from("cards")
+      .insert([{
+        profile_id: profileId,
         age: Number(age),
         personality_type: personalityType,
         qualities,
         interests,
         relations: relation,
         note: note.trim() || null,
-      })
-      .eq("id", profileId);
+      }]);
 
     setSubmitting(false);
 
