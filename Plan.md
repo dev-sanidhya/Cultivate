@@ -8,56 +8,50 @@ A personality-card-based social discovery platform. Users must fill out a person
 - Dark theme with violet accent (#8b5cf6 / violet-600)
 - No auth yet - Sign In and Get Started both route to /signup
 - Supabase (PostgreSQL) for data persistence - live and wired
+- Profile ID stored in localStorage after signup (temporary identity until auth lands)
 
-## What's Been Built (Session 1 - 2026-05-13)
+## What's Been Built
 
-### Pages
-1. `app/page.tsx` - Homepage
-   - Navbar with logo + "Sign in" link
-   - Hero section: headline, subtext, "Get Started" and "Sign In" CTAs
-   - Feature cards section (3 cards: Personality Cards, Intentional Bonds, Honest Profiles)
-   - Footer
+### Landing & Auth
+- `app/page.tsx` - Homepage with hero, feature cards, CTAs
+- `app/signup/page.tsx` - Card builder form (name, gender, school/college accordion). Writes to Supabase, stores profile ID in localStorage, redirects to /home
 
-2. `app/signup/page.tsx` - Sign-up / Card Builder
-   - Name field
-   - Gender selector (Male / Female / Other toggle buttons)
-   - Education selector: School or College accordion
-     - School card: School name, PIN code, Higher secondary pass-out year
-     - College card: College name, Graduation year, Branch, Section
-   - Client-side validation on all fields
-   - Writes to Supabase `profiles` table on submit with loading/error states
-   - Success screen after submit
+### Dashboard (app/(dashboard)/)
+- `layout.tsx` - Fixed sidebar with logo + 5 nav items (Home, My Card, Search, Chat, Saved)
+- `home/page.tsx` - Live card grid fetched from Supabase. Like/Save toggles (client state). Filters (UI only for now). Hides own card.
+- `my-card/page.tsx` - Full profile view for the logged-in user (reads from localStorage ID)
+- `search/page.tsx` - Real-time client-side search across name, college, branch. Edu and gender filters.
+- `chat/page.tsx` - Conversation list shell with mock data. Real-time messaging deferred.
+- `saved/page.tsx` - Liked/Saved tabs shell. Persistence deferred (needs likes/saves table).
 
-### Database (Supabase)
-- Project: Cultivate (`ngijqnojxrxdlsobxrlw`)
-- Region: ap-southeast-1 (Singapore)
-- Table: `public.profiles`
-  - id (uuid, PK)
-  - name, gender, edu_type
-  - school_name, school_pin_code, school_pass_out_year
-  - college_name, college_graduation_year, college_branch, college_section
-  - created_at
-- RLS enabled: open insert + select policies (no auth yet)
+### Components
+- `components/PersonalityCard.tsx` - Reusable card UI with avatar gradient, edu info, like/save/chat actions
+
+### Database (Supabase - ngijqnojxrxdlsobxrlw)
+- `public.profiles` table: id, name, gender, edu_type, school/college fields, created_at
+- RLS: open insert + select (tighten when auth lands)
 
 ### Lib
-- `lib/supabase.ts` - singleton Supabase client using env vars
+- `lib/supabase.ts` - singleton client from env vars
 
 ## Key Decisions
-- Auth intentionally skipped - will add Supabase Auth later, RLS policies will tighten then
-- School/College picker uses CSS max-height accordion (no external library)
-- PIN code sanitized to digits only, max 6 chars
-- `.env.local` holds keys, covered by `.gitignore` (.env*)
+- Route group `(dashboard)` keeps sidebar layout isolated from landing/signup
+- Profile identity via localStorage until Supabase Auth is wired
+- Like/Save state is client-only for now - needs a DB table (profile_likes, profile_saves) later
+- Chat is UI shell only - real-time via WebSockets/Supabase Realtime is next big feature
 
 ## Next Steps / Priorities
-1. Personality card expanded fields: interests, goals, personality type, what you're looking for
-2. Dashboard / browse page: grid of personality cards fetched from Supabase
-3. Personality card UI component: the card design others see when browsing
-4. Auth (Supabase Auth - email/password or Google OAuth) - deferred
+1. Expanded personality card fields: interests, goals, what you're looking for, personality type
+2. Persist likes and saves to Supabase (profile_likes, profile_saves tables)
+3. Real-time chat with Supabase Realtime / WebSockets
+4. Supabase Auth (email/password or Google OAuth) - replaces localStorage identity
+5. Edit profile / update card
+6. Sidebar avatar shows actual user name/initials
 
 ## Stack
 - Framework: Next.js 16 (App Router)
 - Language: TypeScript
-- Styling: TailwindCSS v4
+- Styling: TailwindCSS v4 + lucide-react icons
 - DB: Supabase (PostgreSQL) - ngijqnojxrxdlsobxrlw.supabase.co
 - Hosting: TBD (Vercel likely)
 - Auth: TBD (Supabase Auth, deferred)
