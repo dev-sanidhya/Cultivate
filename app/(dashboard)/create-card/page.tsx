@@ -194,8 +194,30 @@ export default function CreateCardPage() {
     setStep((s) => s - 1);
   }
 
+  function firstInvalidStep() {
+    for (let currentStep = 1; currentStep < TOTAL_STEPS; currentStep += 1) {
+      if (Object.keys(validateStep(currentStep)).length > 0) {
+        return currentStep;
+      }
+    }
+    return null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (step < TOTAL_STEPS) {
+      const currentErrors = validateStep(step);
+      setErrors(currentErrors);
+
+      if (Object.keys(currentErrors).length === 0) {
+        setSubmitError(null);
+        setStep((currentStep) => currentStep + 1);
+      }
+
+      return;
+    }
+
     const profileId = localStorage.getItem("cultivate_profile_id");
     if (!profileId) {
       setSubmitError("Session not found. Please sign in again.");
@@ -209,6 +231,11 @@ export default function CreateCardPage() {
     };
 
     if (Object.keys(validationErrors).length > 0) {
+      const invalidStep = firstInvalidStep();
+      if (invalidStep) {
+        setStep(invalidStep);
+        setErrors(validateStep(invalidStep));
+      }
       setSubmitError("Please complete all required fields before publishing.");
       return;
     }
@@ -271,7 +298,21 @@ export default function CreateCardPage() {
         })}
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-lg">
+      <form
+        onSubmit={handleSubmit}
+        onKeyDown={(e) => {
+          if (
+            e.key === "Enter" &&
+            step < TOTAL_STEPS &&
+            !(e.target instanceof HTMLTextAreaElement) &&
+            !(e.target instanceof HTMLButtonElement)
+          ) {
+            e.preventDefault();
+            next();
+          }
+        }}
+        className="max-w-lg"
+      >
 
         {/* ── Step 1: Personality type + age ─── */}
         {step === 1 && (
