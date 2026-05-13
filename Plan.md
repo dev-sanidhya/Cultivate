@@ -6,8 +6,8 @@ A personality-card-based social discovery platform. Users must fill out a person
 ## Current Approach
 - Next.js 16 + TypeScript + TailwindCSS (App Router)
 - Dark theme with violet accent (#8b5cf6 / violet-600)
-- No auth backend yet - UI-only for now to skip API costs
-- All state is client-side (React useState)
+- No auth yet - Sign In and Get Started both route to /signup
+- Supabase (PostgreSQL) for data persistence - live and wired
 
 ## What's Been Built (Session 1 - 2026-05-13)
 
@@ -25,25 +25,39 @@ A personality-card-based social discovery platform. Users must fill out a person
      - School card: School name, PIN code, Higher secondary pass-out year
      - College card: College name, Graduation year, Branch, Section
    - Client-side validation on all fields
-   - Success screen after submit ("You're in, [Name].")
+   - Writes to Supabase `profiles` table on submit with loading/error states
+   - Success screen after submit
+
+### Database (Supabase)
+- Project: Cultivate (`ngijqnojxrxdlsobxrlw`)
+- Region: ap-southeast-1 (Singapore)
+- Table: `public.profiles`
+  - id (uuid, PK)
+  - name, gender, edu_type
+  - school_name, school_pin_code, school_pass_out_year
+  - college_name, college_graduation_year, college_branch, college_section
+  - created_at
+- RLS enabled: open insert + select policies (no auth yet)
+
+### Lib
+- `lib/supabase.ts` - singleton Supabase client using env vars
 
 ## Key Decisions
-- Auth is intentionally skipped for now - the Sign In and Get Started buttons both go to /signup
-- School/College picker uses CSS max-height transition accordion (no external library)
-- PIN code input is sanitized to digits only, max 6 chars
-- Year selectors span current year -4 to +5
+- Auth intentionally skipped - will add Supabase Auth later, RLS policies will tighten then
+- School/College picker uses CSS max-height accordion (no external library)
+- PIN code sanitized to digits only, max 6 chars
+- `.env.local` holds keys, covered by `.gitignore` (.env*)
 
 ## Next Steps / Priorities
-- Personality card itself: more fields (interests, goals, personality type, what you're looking for, etc.)
-- Dashboard / browse page: grid of personality cards from other users
-- Actual auth (email + password or OAuth) - deferred
-- Backend: Supabase or similar to persist profiles
-- Personality card design: the card UI that others see when browsing
+1. Personality card expanded fields: interests, goals, personality type, what you're looking for
+2. Dashboard / browse page: grid of personality cards fetched from Supabase
+3. Personality card UI component: the card design others see when browsing
+4. Auth (Supabase Auth - email/password or Google OAuth) - deferred
 
 ## Stack
 - Framework: Next.js 16 (App Router)
 - Language: TypeScript
 - Styling: TailwindCSS v4
+- DB: Supabase (PostgreSQL) - ngijqnojxrxdlsobxrlw.supabase.co
 - Hosting: TBD (Vercel likely)
-- DB: TBD (Supabase likely)
-- Auth: TBD (deferred)
+- Auth: TBD (Supabase Auth, deferred)
