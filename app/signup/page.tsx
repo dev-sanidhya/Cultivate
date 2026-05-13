@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 type EducationType = "school" | "college" | null;
 
@@ -40,6 +41,8 @@ export default function SignupPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function validate() {
     const e: Record<string, string> = {};
@@ -64,9 +67,43 @@ export default function SignupPage() {
     return Object.keys(e).length === 0;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (validate()) setStep("done");
+    if (!validate()) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    const payload =
+      eduType === "school"
+        ? {
+            name,
+            gender,
+            edu_type: "school",
+            school_name: school.name,
+            school_pin_code: school.pinCode,
+            school_pass_out_year: school.passOutYear,
+          }
+        : {
+            name,
+            gender,
+            edu_type: "college",
+            college_name: college.name,
+            college_graduation_year: college.graduationYear,
+            college_branch: college.branch,
+            college_section: college.section,
+          };
+
+    const { error } = await supabase.from("profiles").insert([payload]);
+
+    setSubmitting(false);
+
+    if (error) {
+      setSubmitError("Something went wrong. Please try again.");
+      return;
+    }
+
+    setStep("done");
   }
 
   if (step === "done") {
@@ -331,11 +368,15 @@ export default function SignupPage() {
             </div>
 
             {/* Submit */}
+            {submitError && (
+              <p className="text-sm text-red-400 text-center">{submitError}</p>
+            )}
             <button
               type="submit"
-              className="w-full py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium text-sm transition-all hover:shadow-lg hover:shadow-violet-600/25 active:scale-[0.98] mt-2"
+              disabled={submitting}
+              className="w-full py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm transition-all hover:shadow-lg hover:shadow-violet-600/25 active:scale-[0.98] mt-2"
             >
-              Build my card
+              {submitting ? "Saving..." : "Build my card"}
             </button>
           </form>
         </div>
