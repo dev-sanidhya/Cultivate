@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type EducationType = "school" | "college" | null;
@@ -23,7 +24,6 @@ const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 10 }, (_, i) => String(currentYear - 4 + i));
 
 export default function SignupPage() {
-  const [step, setStep] = useState<"form" | "done">("form");
   const [name, setName] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "other" | "">("");
   const [eduType, setEduType] = useState<EducationType>(null);
@@ -43,6 +43,7 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const router = useRouter();
 
   function validate() {
     const e: Record<string, string> = {};
@@ -94,42 +95,21 @@ export default function SignupPage() {
             college_section: college.section,
           };
 
-    const { error } = await supabase.from("profiles").insert([payload]);
+    const { data, error } = await supabase
+      .from("profiles")
+      .insert([payload])
+      .select("id")
+      .single();
 
     setSubmitting(false);
 
-    if (error) {
+    if (error || !data) {
       setSubmitError("Something went wrong. Please try again.");
       return;
     }
 
-    setStep("done");
-  }
-
-  if (step === "done") {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6 relative">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-violet-600/8 rounded-full blur-[100px]" />
-        </div>
-        <div className="relative z-10 text-center max-w-sm">
-          <div className="w-16 h-16 rounded-full bg-violet-600/20 border border-violet-500/30 flex items-center justify-center mx-auto mb-6 text-3xl">
-            ✦
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-3">You&apos;re in, {name.split(" ")[0]}.</h2>
-          <p className="text-white/40 text-sm leading-relaxed mb-8">
-            Your profile is being set up. Soon you&apos;ll be able to browse personality
-            cards and find your people.
-          </p>
-          <Link
-            href="/"
-            className="px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all"
-          >
-            Back to home
-          </Link>
-        </div>
-      </main>
-    );
+    localStorage.setItem("cultivate_profile_id", data.id);
+    router.push("/home");
   }
 
   return (
