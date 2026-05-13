@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const featureCards = [
   {
@@ -24,6 +26,23 @@ const featureCards = [
 ];
 
 export default function Home() {
+  const router = useRouter();
+
+  // If already signed in, redirect straight to home feed
+  useEffect(() => {
+    const id = localStorage.getItem("cultivate_profile_id");
+    if (id) router.replace("/home");
+  }, [router]);
+
+  function handleSignIn() {
+    const id = localStorage.getItem("cultivate_profile_id");
+    if (id) {
+      router.push("/home");
+    } else {
+      router.push("/signup");
+    }
+  }
+
   return (
     <main className="min-h-screen flex flex-col">
       {/* Navbar */}
@@ -31,12 +50,12 @@ export default function Home() {
         <span className="text-lg font-semibold tracking-tight text-white">
           cultivate
         </span>
-        <Link
-          href="/signup"
+        <button
+          onClick={handleSignIn}
           className="text-sm text-white/60 hover:text-white transition-colors"
         >
           Sign in
-        </Link>
+        </button>
       </nav>
 
       {/* Hero */}
@@ -71,12 +90,12 @@ export default function Home() {
             >
               Get Started
             </Link>
-            <Link
-              href="/signup"
+            <button
+              onClick={handleSignIn}
               className="px-7 py-3 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 text-white/70 hover:text-white font-medium text-sm transition-all active:scale-95"
             >
               Sign In
-            </Link>
+            </button>
           </div>
         </div>
       </section>
