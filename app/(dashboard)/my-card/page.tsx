@@ -9,6 +9,7 @@ import {
   Edit3,
   Loader2,
   UserSquare2,
+  PlusCircle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -170,9 +171,22 @@ export default function MyCardPage() {
         </div>
       </div>
 
-      <p className="text-xs text-white/20 text-center">
-        More fields coming soon - interests, goals, and what you&apos;re looking for.
-      </p>
+      {/* Prompt to create card if personality fields are empty */}
+      {!profile.personality_type && (
+        <div className="rounded-2xl border border-violet-500/15 bg-violet-600/5 p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-white/70 mb-0.5">Your personality card is empty.</p>
+            <p className="text-xs text-white/30">Add your personality, interests, and what you&apos;re looking for so others can find you.</p>
+          </div>
+          <Link
+            href="/create-card"
+            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all"
+          >
+            <PlusCircle size={14} />
+            Create Card
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

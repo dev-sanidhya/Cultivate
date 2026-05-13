@@ -8,6 +8,7 @@ import {
   Search,
   MessageCircle,
   Bookmark,
+  PlusCircle,
 } from "lucide-react";
 
 const navItems = [
@@ -16,6 +17,10 @@ const navItems = [
   { href: "/search", icon: Search, label: "Search" },
   { href: "/chat", icon: MessageCircle, label: "Chat" },
   { href: "/saved", icon: Bookmark, label: "Saved" },
+];
+
+const actionItems = [
+  { href: "/create-card", icon: PlusCircle, label: "Create Card" },
 ];
 
 export default function DashboardLayout({
@@ -59,6 +64,27 @@ export default function DashboardLayout({
             );
           })}
         </nav>
+
+        {/* Create card CTA */}
+        <div className="px-3 pb-2">
+          {actionItems.map(({ href, icon: Icon, label }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  active
+                    ? "bg-violet-600/15 text-violet-300 border border-violet-500/20"
+                    : "bg-violet-600/10 border border-violet-500/15 text-violet-400 hover:bg-violet-600/20 hover:text-violet-300"
+                }`}
+              >
+                <Icon size={18} />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
 
         {/* Bottom - profile hint */}
         <div className="px-4 py-4 border-t border-white/5">
