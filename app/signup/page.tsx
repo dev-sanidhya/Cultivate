@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +25,12 @@ const years = Array.from({ length: 10 }, (_, i) => String(currentYear - 4 + i));
 
 export default function SignupPage() {
   const router = useRouter();
+
+  useEffect(() => {
+    const id = localStorage.getItem("cultivate_profile_id");
+    if (id) router.replace("/home");
+  }, [router]);
+
   const [name, setName] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "other" | "">("");
   const [eduType, setEduType] = useState<EducationType>(null);
