@@ -202,6 +202,17 @@ export default function CreateCardPage() {
       return;
     }
 
+    const validationErrors = {
+      ...validateStep(1),
+      ...validateStep(2),
+      ...validateStep(3),
+    };
+
+    if (Object.keys(validationErrors).length > 0) {
+      setSubmitError("Please complete all required fields before publishing.");
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
 
