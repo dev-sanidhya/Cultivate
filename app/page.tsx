@@ -1,130 +1,106 @@
-"use client";
+import Link from "next/link"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 
-import { useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-
-const featureCards = [
-  {
-    icon: "✦",
-    title: "Personality Cards",
-    description:
-      "Every person on Cultivate has a rich card that captures who they are, what they want, and what makes them tick.",
-  },
-  {
-    icon: "⟡",
-    title: "Intentional Bonds",
-    description:
-      "No random connections. Browse people whose goals, vibe, and background actually align with yours.",
-  },
-  {
-    icon: "◈",
-    title: "Honest Profiles",
-    description:
-      "Building a profile is mandatory. Real context, real people. No ghost accounts, no blank slates.",
-  },
-];
-
-export default function Home() {
-  const router = useRouter();
-
-  // If already signed in, redirect straight to home feed
-  useEffect(() => {
-    const id = localStorage.getItem("cultivate_profile_id");
-    if (id) router.replace("/home");
-  }, [router]);
-
-  function handleSignIn() {
-    const id = localStorage.getItem("cultivate_profile_id");
-    if (id) {
-      router.push("/home");
-    } else {
-      router.push("/signup");
-    }
-  }
+export default async function LandingPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) redirect("/home")
 
   return (
-    <main className="min-h-screen flex flex-col">
-      {/* Navbar */}
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-white/5">
-        <span className="text-lg font-semibold tracking-tight text-white">
-          cultivate
-        </span>
-        <button
-          onClick={handleSignIn}
-          className="text-sm text-white/60 hover:text-white transition-colors"
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(160deg, #F5F3FF 0%, #FDF2F8 50%, #FAFAFA 100%)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 24px calc(24px + env(safe-area-inset-bottom))",
+        maxWidth: 480,
+        margin: "0 auto",
+      }}
+    >
+      {/* Logo */}
+      <div style={{ marginBottom: 48, textAlign: "center" }}>
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 20,
+            background: "linear-gradient(135deg, #7C3AED, #EC4899)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 16px",
+            boxShadow: "0 8px 32px rgba(124, 58, 237, 0.3)",
+          }}
         >
-          Sign in
-        </button>
-      </nav>
-
-      {/* Hero */}
-      <section className="flex-1 flex flex-col items-center justify-center text-center px-6 py-24 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/10 rounded-full blur-[120px]" />
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <path d="M18 6C11.4 6 6 11.4 6 18s5.4 12 12 12 12-5.4 12-12S24.6 6 18 6z" fill="rgba(255,255,255,0.2)" />
+            <path d="M12 18c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6-6-2.7-6-6z" fill="white" />
+            <circle cx="18" cy="18" r="3" fill="rgba(124,58,237,0.6)" />
+          </svg>
         </div>
+        <h1
+          style={{
+            fontSize: 40,
+            fontWeight: 800,
+            background: "linear-gradient(135deg, #7C3AED, #EC4899)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            letterSpacing: "-1px",
+          }}
+        >
+          Strefo
+        </h1>
+        <p style={{ fontSize: 16, color: "#6B7280", marginTop: 8, lineHeight: 1.5 }}>
+          Find your people.<br />Bond with purpose.
+        </p>
+      </div>
 
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-white/50 mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse inline-block" />
-            Find your people
+      {/* Feature list */}
+      <div style={{ width: "100%", marginBottom: 48, display: "flex", flexDirection: "column", gap: 12 }}>
+        {[
+          { emoji: "✈️", text: "Travel partners" },
+          { emoji: "🎮", text: "Gaming buddies" },
+          { emoji: "🚀", text: "Co-founders" },
+          { emoji: "💛", text: "Best friends" },
+          { emoji: "🎓", text: "College connections" },
+        ].map(({ emoji, text }) => (
+          <div
+            key={text}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 16px",
+              background: "white",
+              borderRadius: 12,
+              border: "1px solid #EDE9FE",
+              boxShadow: "0 1px 4px rgba(109,40,217,0.06)",
+            }}
+          >
+            <span style={{ fontSize: 20 }}>{emoji}</span>
+            <span style={{ fontSize: 15, fontWeight: 500, color: "#1E1B4B" }}>{text}</span>
           </div>
+        ))}
+      </div>
 
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
-            Bond with people{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-pink-400">
-              who get it.
-            </span>
-          </h1>
+      {/* CTA */}
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+        <Link href="/signup" className="btn-primary" style={{ textDecoration: "none" }}>
+          Get Started
+        </Link>
+        <Link href="/login" className="btn-secondary" style={{ textDecoration: "none" }}>
+          Sign In
+        </Link>
+      </div>
 
-          <p className="text-lg text-white/50 max-w-xl mx-auto mb-10 leading-relaxed">
-            Cultivate helps you discover people worth knowing. Browse personality
-            cards, find your kind, and build connections that actually mean
-            something.
-          </p>
-
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Link
-              href="/signup"
-              className="px-7 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium text-sm transition-all hover:shadow-lg hover:shadow-violet-600/25 active:scale-95"
-            >
-              Get Started
-            </Link>
-            <button
-              onClick={handleSignIn}
-              className="px-7 py-3 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 text-white/70 hover:text-white font-medium text-sm transition-all active:scale-95"
-            >
-              Sign In
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Feature cards */}
-      <section className="px-6 pb-24 max-w-5xl mx-auto w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {featureCards.map((card) => (
-            <div
-              key={card.title}
-              className="rounded-2xl border border-white/8 bg-white/3 p-6 hover:bg-white/5 hover:border-white/12 transition-all"
-            >
-              <span className="text-2xl text-violet-400 block mb-3">
-                {card.icon}
-              </span>
-              <h3 className="font-semibold text-white mb-2">{card.title}</h3>
-              <p className="text-sm text-white/40 leading-relaxed">
-                {card.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-white/5 px-8 py-5 flex items-center justify-between text-xs text-white/20">
-        <span>cultivate</span>
-        <span>find your people.</span>
-      </footer>
+      <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 24, textAlign: "center" }}>
+        By continuing, you agree to Strefo&apos;s Terms of Service and Privacy Policy.
+      </p>
     </main>
-  );
+  )
 }

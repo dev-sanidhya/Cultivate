@@ -1,0 +1,237 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { Plus, Lock, Globe, X } from "lucide-react"
+import { toast } from "sonner"
+import { createClient } from "@/lib/supabase/client"
+import { PersonalityCard } from "@/components/cards/PersonalityCard"
+import { Modal } from "@/components/ui/Modal"
+import { Avatar } from "@/components/ui/Avatar"
+import { Spinner } from "@/components/ui/Spinner"
+import type { Card, Profile } from "@/types"
+
+export default function CardsPage() {
+  const [cards, setCards] = useState<Card[]>([])
+  const [loading, setLoading] = useState(true)
+  const [closingCard, setClosingCard] = useState<Card | null>(null)
+  const [chatProfiles, setChatProfiles] = useState<Profile[]>([])
+  const [selectedProfile, setSelectedProfile] = useState<string | null>(null)
+  const [closeLoading, setCloseLoading] = useState(false)
+
+  useEffect(() => {
+    loadCards()
+  }, [])
+
+  async function loadCards() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data } = await supabase
+      .from("cards")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+
+    setCards(data ?? [])
+    setLoading(false)
+  }
+
+  async function handleUnlockChat(card: Card) {
+    const supabase = createClient()
+    const { data: pricing } = await supabase
+      .from("chat_pricing")
+      .select("*")
+      .eq("looking_for_category", card.looking_for)
+      .single()
+
+    const price = pricing?.price ?? 0
+    const duration = pricing?.duration_days ?? 30
+
+    if (price === 0) {
+      // Free - unlock immediately
+      await supabase
+        .from("cards")
+        .update({ chat_enabled: true })
+        .eq("id", card.id)
+
+      await supabase.from("chat_unlocks").insert({
+        user_id: (await supabase.auth.getUser()).data.user?.id,
+        card_id: card.id,
+        looking_for_category: card.looking_for,
+        expires_at: new Date(Date.now() + duration * 86400000).toISOString(),
+      })
+
+      toast.success("Chat unlocked!")
+      loadCards()
+    } else {
+      toast.info(`Chat unlock costs ₹${price / 100}. Payment integration coming soon.`)
+    }
+  }
+
+  async function handleCloseCard(card: Card) {
+    // Load chat profiles for this user
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { data: chats } = await supabase
+      .from("chats")
+      .select("*, initiator:initiator_id(id, first_name, last_name, photo_url), recipient:recipient_id(id, first_name, last_name, photo_url)")
+      .or(`initiator_id.eq.${user!.id},recipient_id.eq.${user!.id}`)
+
+    const profiles: Profile[] = []
+    chats?.forEach((c) => {
+      const other = c.initiator_id === user!.id ? c.recipient : c.initiator
+      if (other && !profiles.find((p) => p.id === other.id)) {
+        profiles.push(other as Profile)
+      }
+    })
+
+    setChatProfiles(profiles)
+    setClosingCard(card)
+    setSelectedProfile(null)
+  }
+
+  async function confirmCloseCard(didntFind: boolean) {
+    if (!closingCard) return
+    setCloseLoading(true)
+    const supabase = createClient()
+
+    await supabase.from("cards").update({
+      is_closed: true,
+      is_public: false,
+      closed_with_profile_id: didntFind ? null : selectedProfile,
+    }).eq("id", closingCard.id)
+
+    toast.success("Card closed.")
+    setClosingCard(null)
+    loadCards()
+    setCloseLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>
+        <Spinner size={32} color="primary" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="page-container" style={{ paddingTop: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)" }}>My Cards</h1>
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>
+            {cards.length} {cards.length === 1 ? "card" : "cards"}
+          </p>
+        </div>
+        <Link href="/cards/create" style={{ textDecoration: "none" }}>
+          <button
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
+              background: "var(--color-primary)", color: "white", border: "none",
+              borderRadius: 20, fontWeight: 600, fontSize: 14, cursor: "pointer",
+            }}
+          >
+            <Plus size={16} /> New Card
+          </button>
+        </Link>
+      </div>
+
+      {cards.length === 0 ? (
+        <div style={{ textAlign: "center", paddingTop: 60 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🪪</div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text)", marginBottom: 8 }}>
+            No cards yet
+          </h3>
+          <p style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 24 }}>
+            Create your first Personality Card to start connecting.
+          </p>
+          <Link href="/cards/create" style={{ textDecoration: "none" }}>
+            <button className="btn-primary" style={{ maxWidth: 200, margin: "0 auto" }}>
+              Create Card
+            </button>
+          </Link>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {cards.map((card) => (
+            <PersonalityCard
+              key={card.id}
+              card={card}
+              mode="own"
+              onUnlockChat={() => handleUnlockChat(card)}
+              onClose={() => handleCloseCard(card)}
+              onEdit={() => window.location.href = `/cards/${card.id}/edit`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Close Card Modal */}
+      <Modal
+        open={!!closingCard}
+        onClose={() => setClosingCard(null)}
+        title="Close this card?"
+      >
+        <p style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 20, lineHeight: 1.6 }}>
+          Have you found the person you were looking for?
+        </p>
+
+        {chatProfiles.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 12 }}>
+              Select a profile to lock with:
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {chatProfiles.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedProfile(p.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12, padding: "12px",
+                    borderRadius: 12, border: `2px solid ${selectedProfile === p.id ? "var(--color-primary)" : "var(--color-border)"}`,
+                    background: selectedProfile === p.id ? "var(--color-primary-bg)" : "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Avatar name={`${p.first_name} ${p.last_name}`} photoUrl={p.photo_url} size={36} />
+                  <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text)" }}>
+                    {p.first_name} {p.last_name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {selectedProfile && (
+            <button
+              className="btn-primary"
+              onClick={() => confirmCloseCard(false)}
+              disabled={closeLoading}
+            >
+              Lock with selected profile
+            </button>
+          )}
+          <button
+            className="btn-secondary"
+            onClick={() => confirmCloseCard(true)}
+            disabled={closeLoading}
+          >
+            {"Didn't find the person - close anyway"}
+          </button>
+          <button
+            onClick={() => setClosingCard(null)}
+            style={{ background: "none", border: "none", color: "var(--color-text-secondary)", fontSize: 14, cursor: "pointer", padding: "8px" }}
+          >
+            Keep card open
+          </button>
+        </div>
+      </Modal>
+    </div>
+  )
+}

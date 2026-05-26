@@ -1,27 +1,43 @@
-import type { Metadata } from "next";
-import { Geist } from "next/font/google";
-import "./globals.css";
+import type { Metadata, Viewport } from "next"
+import { Geist } from "next/font/google"
+import { Toaster } from "sonner"
+import "./globals.css"
 
 const geist = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
+})
 
 export const metadata: Metadata = {
-  title: "Cultivate",
-  description: "Find your people. Bond with purpose.",
-};
+  title: "Strefo - Find Your People",
+  description: "Find like-minded people for travel, gaming, friendship, co-founding and more.",
+  applicationName: "Strefo",
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#7C3AED",
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geist.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#0a0a0a] text-white">
+    <html lang="en" className={geist.variable}>
+      <body>
         {children}
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              borderRadius: "12px",
+              fontFamily: "var(--font-geist-sans)",
+              fontSize: "14px",
+            },
+          }}
+        />
       </body>
     </html>
-  );
+  )
 }
