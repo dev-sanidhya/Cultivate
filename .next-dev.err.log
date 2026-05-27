@@ -23,3 +23,87 @@ https://supabase.com/dashboard/project/_/settings/api
   14 |   return ( {
   digest: '217005979'
 }
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at async POST (app\api\otp\verify\route.ts:59:51)
+  57 |
+  58 |     // Try create first. If the user already exists, resolve them as an existing user.
+> 59 |     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+     |                                                   ^
+  60 |       email,
+  61 |       password,
+  62 |       email_confirm: true, {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}
+TypeError: fetch failed
+    at ignore-listed frames {
+  [cause]: Error [ConnectTimeoutError]: Connect Timeout Error (attempted addresses: 172.64.149.246:443, 104.18.38.10:443, timeout: 10000ms)
+      at ignore-listed frames {
+    code: 'UND_ERR_CONNECT_TIMEOUT'
+  }
+}

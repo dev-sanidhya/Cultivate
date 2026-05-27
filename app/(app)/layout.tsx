@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { BottomNav } from "@/components/ui/BottomNav"
 import { AppHeader } from "@/components/ui/AppHeader"
 import { VisitTracker } from "@/components/VisitTracker"
+import { DesktopSidebarNav } from "@/components/ui/DesktopSidebarNav"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -18,11 +19,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!profile) redirect("/signup")
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--color-bg)" }}>
-      <div style={{ maxWidth: 480, margin: "0 auto", position: "relative" }}>
+    <div className="app-shell">
+      <DesktopSidebarNav />
+      <div className="app-content-frame">
         <VisitTracker userId={user.id} />
         <AppHeader profile={profile} />
-        <main style={{ paddingTop: 64 }}>
+        <main className="app-main">
           {children}
         </main>
         <BottomNav />

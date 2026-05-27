@@ -8,6 +8,7 @@ import type { Profile } from "@/types"
 export function AppHeader({ profile }: { profile: Profile }) {
   return (
     <header
+      className="app-top-header"
       style={{
         position: "fixed",
         top: 0,
@@ -22,6 +23,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
       }}
     >
       <div
+        className="app-top-header-inner"
         style={{
           width: "100%",
           maxWidth: 480,
@@ -32,6 +34,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
         }}
       >
         <span
+          className="app-top-header-brand"
           style={{
             fontSize: 22,
             fontWeight: 800,

@@ -17,6 +17,7 @@ export function BottomNav() {
 
   return (
     <nav
+      className="bottom-nav-mobile"
       style={{
         position: "fixed",
         bottom: 0,
