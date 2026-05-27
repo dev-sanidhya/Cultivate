@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Plus, Trash2, Save } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 import { ADMIN_PAGES } from "@/types"
 import type { AdminUser } from "@/types"
-import crypto from "crypto"
+import { sha256Hex } from "@/lib/utils/hash"
 
 export default function AdminAccessPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([])
@@ -31,7 +31,7 @@ export default function AdminAccessPage() {
     }
     setCreating(true)
     const supabase = createClient()
-    const passwordHash = crypto.createHash("sha256").update(formData.password).digest("hex")
+    const passwordHash = await sha256Hex(formData.password)
 
     const { error } = await supabase.from("admin_users").insert({
       name: formData.name,

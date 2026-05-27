@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Spinner } from "@/components/ui/Spinner"
+import { sha256Hex } from "@/lib/utils/hash"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -25,11 +26,10 @@ export default function AdminLoginPage() {
 
     if (!admin) { toast.error("Invalid credentials"); setLoading(false); return }
 
-    // Simple password check (in production, use bcrypt)
-    const { createHash } = await import("crypto").catch(() => ({ createHash: null }))
-    // Fallback: compare plaintext (admin sets up passwords manually via DB)
+    const hashedPassword = await sha256Hex(password)
+    // Fallback: compare plaintext (for legacy records set manually in DB)
     const passwordMatches = admin.password_hash === password ||
-      (createHash && admin.password_hash === createHash("sha256").update(password).digest("hex"))
+      admin.password_hash === hashedPassword
 
     if (!passwordMatches) { toast.error("Invalid credentials"); setLoading(false); return }
 
