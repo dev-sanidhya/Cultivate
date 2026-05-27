@@ -114,6 +114,21 @@ function NewSearchContent() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Please sign in again")
 
+      const taggedAddress = buildTaggedAddress()
+      const hasAnyFilter =
+        !!age ||
+        !!gender ||
+        !!lookingFor ||
+        personalityTypes.length > 0 ||
+        qualities.length > 0 ||
+        hobbies.length > 0 ||
+        !!taggedAddress
+
+      if (mode === "filter" && !hasAnyFilter) {
+        toast.error("Please select at least one filter before searching")
+        return
+      }
+
       const searchData = mode === "card_id"
         ? {
             user_id: user!.id,
@@ -130,7 +145,7 @@ function NewSearchContent() {
             personality_types: personalityTypes,
             qualities,
             hobbies,
-            tagged_address: buildTaggedAddress(),
+            tagged_address: taggedAddress,
             last_searched_at: new Date().toISOString(),
           }
 
@@ -145,13 +160,78 @@ function NewSearchContent() {
           .eq("id", editId)
         if (updateError) throw updateError
       } else {
-        const { data, error: insertError } = await supabase
-          .from("searches")
-          .insert(insertPayload)
-          .select("id")
-          .single()
-        if (insertError) throw insertError
-        searchId = data?.id
+        let existingSearchId: string | null = null
+
+        if (mode === "card_id") {
+          const { data: existing } = await supabase
+            .from("searches")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("search_type", "card_id")
+            .eq("card_id_query", searchData.card_id_query)
+            .limit(1)
+            .maybeSingle()
+
+          existingSearchId = existing?.id ?? null
+        } else {
+          const { data: existingFilters } = await supabase
+            .from("searches")
+            .select("id, age, gender, looking_for, personality_types, qualities, hobbies, tagged_address")
+            .eq("user_id", user.id)
+            .eq("search_type", "filter")
+
+          const normalizeArray = (arr?: string[] | null) =>
+            (arr ?? []).map((v) => v.trim()).filter(Boolean).sort()
+          const normalizeAddress = (value: TaggedAddress | null) => {
+            if (!value) return null
+            const entries = Object.entries(value)
+              .filter(([key, val]) => key === "type" || (typeof val === "string" && val.trim().length > 0))
+              .sort(([a], [b]) => a.localeCompare(b))
+            return Object.fromEntries(entries)
+          }
+
+          const currentSignature = JSON.stringify({
+            age: searchData.age ?? null,
+            gender: searchData.gender ?? null,
+            looking_for: searchData.looking_for ?? null,
+            personality_types: normalizeArray(searchData.personality_types),
+            qualities: normalizeArray(searchData.qualities),
+            hobbies: normalizeArray(searchData.hobbies),
+            tagged_address: normalizeAddress(searchData.tagged_address),
+          })
+
+          const existingMatch = (existingFilters ?? []).find((item) => {
+            const itemSignature = JSON.stringify({
+              age: item.age ?? null,
+              gender: item.gender ?? null,
+              looking_for: item.looking_for ?? null,
+              personality_types: normalizeArray(item.personality_types),
+              qualities: normalizeArray(item.qualities),
+              hobbies: normalizeArray(item.hobbies),
+              tagged_address: normalizeAddress(item.tagged_address as TaggedAddress | null),
+            })
+            return itemSignature === currentSignature
+          })
+
+          existingSearchId = existingMatch?.id ?? null
+        }
+
+        if (existingSearchId) {
+          const { error: moveToTopError } = await supabase
+            .from("searches")
+            .update({ last_searched_at: new Date().toISOString(), new_cards_count: 0 })
+            .eq("id", existingSearchId)
+          if (moveToTopError) throw moveToTopError
+          searchId = existingSearchId
+        } else {
+          const { data, error: insertError } = await supabase
+            .from("searches")
+            .insert(insertPayload)
+            .select("id")
+            .single()
+          if (insertError) throw insertError
+          searchId = data?.id
+        }
       }
 
       if (!searchId) throw new Error("Could not create search. Please try again.")
