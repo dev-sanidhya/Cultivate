@@ -98,7 +98,6 @@ export default function SignupPage() {
 
   async function completeSignup() {
     if (!firstName.trim()) { toast.error("Enter your first name"); return }
-    if (!lastName.trim()) { toast.error("Enter your last name"); return }
     if (!gender) { toast.error("Select your gender"); return }
     if (!dob) { toast.error("Enter your date of birth"); return }
 
@@ -118,7 +117,7 @@ export default function SignupPage() {
         id: userId,
         phone: normalizePhone(phone),
         first_name: firstName.trim(),
-        last_name: lastName.trim(),
+        last_name: lastName.trim() || "",
         gender,
         date_of_birth: dob,
       })
@@ -264,10 +263,10 @@ export default function SignupPage() {
                 />
               </div>
               <div>
-                <label className="label">Last Name</label>
+                <label className="label">Last Name </label>
                 <input
                   className="input"
-                  placeholder="Last name"
+                  placeholder="Last name "
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                 />

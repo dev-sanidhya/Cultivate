@@ -13,6 +13,24 @@ import type { Card, CardInteraction, Search } from "@/types"
 const FILTERS = ["All", "Read", "Unread", "Saved", "Liked"] as const
 type Filter = (typeof FILTERS)[number]
 
+function getActiveAddressFilter(taggedAddress: Search["tagged_address"]) {
+  if (!taggedAddress) return null
+  const activeFieldEntries = Object.entries(taggedAddress).filter(([key, value]) => {
+    if (key === "type") return false
+    return typeof value === "string" ? value.trim().length > 0 : value != null
+  })
+  if (activeFieldEntries.length === 0) return null
+  return Object.fromEntries([["type", taggedAddress.type], ...activeFieldEntries])
+}
+
+function normalizeSelectedValues(values?: string[] | null) {
+  return (values ?? []).map((v) => v.trim()).filter(Boolean)
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
 function SearchResultsContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -28,7 +46,6 @@ function SearchResultsContent() {
   const [search, setSearch] = useState<Search | null>(null)
 
   useEffect(() => {
-    if (!searchId) { router.push("/search"); return }
     loadResults()
   }, [searchId])
 
@@ -41,55 +58,166 @@ function SearchResultsContent() {
   }, [currentIndex, userId])
 
   async function loadResults() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    setUserId(user!.id)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Please sign in again")
+      setUserId(user.id)
 
-    const { data: searchData } = await supabase.from("searches").select("*").eq("id", searchId).single()
-    setSearch(searchData)
+      let searchData: Search | null = null
+      const normalizedSearchId = searchId?.trim()
 
-    let query = supabase
-      .from("cards")
-      .select("*, profile:profiles(id, first_name, last_name, photo_url)")
-      .eq("is_public", true)
-      .eq("is_closed", false)
-      .neq("user_id", user!.id)
+      if (normalizedSearchId && isUuid(normalizedSearchId)) {
+        const { data, error: searchError } = await supabase
+          .from("searches")
+          .select("*")
+          .eq("id", normalizedSearchId)
+          .maybeSingle()
+        if (searchError) throw searchError
+        searchData = data
+      }
 
-    if (searchData?.search_type === "card_id") {
-      query = query.eq("card_id", searchData.card_id_query)
-    } else {
-      if (searchData?.age) query = query.eq("age", searchData.age)
-      if (searchData?.gender) query = query.eq("gender", searchData.gender)
-      if (searchData?.looking_for) query = query.eq("looking_for", searchData.looking_for)
-      if (searchData?.personality_types?.length) {
-        query = query.overlaps("personality_types", searchData.personality_types)
+      if (!searchData) {
+        const { data: latestSearch, error: latestSearchError } = await supabase
+          .from("searches")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("last_searched_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (latestSearchError) throw latestSearchError
+        if (!latestSearch) throw new Error("No search found. Please create a new search.")
+        searchData = latestSearch
       }
-      if (searchData?.qualities?.length) {
-        query = query.overlaps("qualities", searchData.qualities)
+
+      setSearch(searchData)
+
+      let query = supabase
+        .from("cards")
+        .select("*, profile:profiles(id, first_name, last_name, photo_url)")
+        .eq("is_public", true)
+        .eq("is_closed", false)
+        .neq("user_id", user.id)
+
+      if (searchData?.search_type === "card_id") {
+        const cardIdQuery = searchData.card_id_query?.trim()
+        if (cardIdQuery) {
+          query = query.ilike("card_id", cardIdQuery)
+        }
+      } else {
+        if (typeof searchData?.age === "number" && Number.isFinite(searchData.age)) {
+          query = query.eq("age", searchData.age)
+        }
+        const gender = searchData?.gender?.trim()
+        if (gender) {
+          query = query.ilike("gender", gender)
+        }
+        const lookingFor = searchData?.looking_for?.trim()
+        if (lookingFor) {
+          query = query.ilike("looking_for", lookingFor)
+        }
+
+        const personalityTypes = normalizeSelectedValues(searchData?.personality_types)
+        if (personalityTypes.length) {
+          query = query.overlaps("personality_types", personalityTypes)
+        }
+        const qualities = normalizeSelectedValues(searchData?.qualities)
+        if (qualities.length) {
+          query = query.overlaps("qualities", qualities)
+        }
+        const hobbies = normalizeSelectedValues(searchData?.hobbies)
+        if (hobbies.length) {
+          query = query.overlaps("hobbies", hobbies)
+        }
+
+        const activeAddressFilter = getActiveAddressFilter(searchData?.tagged_address)
+        if (activeAddressFilter) {
+          query = query.contains("tagged_address", activeAddressFilter)
+        }
       }
-      if (searchData?.hobbies?.length) {
-        query = query.overlaps("hobbies", searchData.hobbies)
+
+      let { data: cardsData, error: cardsError } = await query.order("created_at", { ascending: false })
+
+      // Fallback for environments where cards->profiles relation is missing in PostgREST schema.
+      if (cardsError) {
+        const fallbackQuery = supabase
+          .from("cards")
+          .select("*")
+          .eq("is_public", true)
+          .eq("is_closed", false)
+          .neq("user_id", user.id)
+
+        if (searchData?.search_type === "card_id") {
+          const cardIdQuery = searchData.card_id_query?.trim()
+          if (cardIdQuery) {
+            fallbackQuery.ilike("card_id", cardIdQuery)
+          }
+        } else {
+          if (typeof searchData?.age === "number" && Number.isFinite(searchData.age)) {
+            fallbackQuery.eq("age", searchData.age)
+          }
+          const gender = searchData?.gender?.trim()
+          if (gender) {
+            fallbackQuery.ilike("gender", gender)
+          }
+          const lookingFor = searchData?.looking_for?.trim()
+          if (lookingFor) {
+            fallbackQuery.ilike("looking_for", lookingFor)
+          }
+
+          const personalityTypes = normalizeSelectedValues(searchData?.personality_types)
+          if (personalityTypes.length) {
+            fallbackQuery.overlaps("personality_types", personalityTypes)
+          }
+          const qualities = normalizeSelectedValues(searchData?.qualities)
+          if (qualities.length) {
+            fallbackQuery.overlaps("qualities", qualities)
+          }
+          const hobbies = normalizeSelectedValues(searchData?.hobbies)
+          if (hobbies.length) {
+            fallbackQuery.overlaps("hobbies", hobbies)
+          }
+
+          const activeAddressFilter = getActiveAddressFilter(searchData?.tagged_address)
+          if (activeAddressFilter) {
+            fallbackQuery.contains("tagged_address", activeAddressFilter)
+          }
+        }
+
+        const fallbackResult = await fallbackQuery.order("created_at", { ascending: false })
+        cardsData = fallbackResult.data
+        cardsError = fallbackResult.error
       }
-      if (searchData?.tagged_address) {
-        query = query.contains("tagged_address", searchData.tagged_address)
-      }
+
+      if (cardsError) throw cardsError
+
+      const { data: interactionsData, error: interactionsError } = await supabase
+        .from("card_interactions")
+        .select("*")
+        .eq("user_id", user.id)
+      if (interactionsError) throw interactionsError
+
+      setCards(cardsData ?? [])
+      setInteractions(interactionsData ?? [])
+
+      const readSet = new Set<string>(
+        interactionsData?.filter((i) => i.type === "read").map((i) => i.card_id) ?? []
+      )
+      setReads(readSet)
+    } catch (e: unknown) {
+      const message =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" && e !== null && "message" in e && typeof e.message === "string"
+            ? e.message
+            : "Failed to load search results"
+      toast.error(message, { id: "search-results-load-error" })
+      setCards([])
+      setInteractions([])
+      setReads(new Set())
+    } finally {
+      setLoading(false)
     }
-
-    const { data: cardsData } = await query.order("created_at", { ascending: false })
-
-    const { data: interactionsData } = await supabase
-      .from("card_interactions")
-      .select("*")
-      .eq("user_id", user!.id)
-
-    setCards(cardsData ?? [])
-    setInteractions(interactionsData ?? [])
-
-    const readSet = new Set<string>(
-      interactionsData?.filter((i) => i.type === "read").map((i) => i.card_id) ?? []
-    )
-    setReads(readSet)
-    setLoading(false)
   }
 
   async function handleInteraction(card: Card, type: "like" | "save") {

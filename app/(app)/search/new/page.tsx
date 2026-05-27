@@ -87,12 +87,24 @@ function NewSearchContent() {
   function buildTaggedAddress(): TaggedAddress | null {
     if (!addressType) return null
     const f = addressFields
+    const trim = (value?: string) => value?.trim() ?? ""
+    let data: TaggedAddress
     switch (addressType) {
-      case "college": return { type: "college", college_name: f.college_name ?? "", graduation_year: f.graduation_year ?? "", branch: f.branch ?? "", section: f.section ?? "" }
-      case "school": return { type: "school", school_name: f.school_name ?? "", pin_code: f.pin_code ?? "", completion_year: f.completion_year ?? "" }
-      case "workplace": return { type: "workplace", company_name: f.company_name ?? "", pin_code: f.pin_code ?? "", department: f.department ?? "" }
-      case "general": return { type: "general", pin_code: f.pin_code ?? "", building_name: f.building_name ?? "" }
+      case "college":
+        data = { type: "college", college_name: trim(f.college_name), graduation_year: trim(f.graduation_year), branch: trim(f.branch), section: trim(f.section) }
+        break
+      case "school":
+        data = { type: "school", school_name: trim(f.school_name), pin_code: trim(f.pin_code), completion_year: trim(f.completion_year) }
+        break
+      case "workplace":
+        data = { type: "workplace", company_name: trim(f.company_name), pin_code: trim(f.pin_code), department: trim(f.department) }
+        break
+      case "general":
+        data = { type: "general", pin_code: trim(f.pin_code), building_name: trim(f.building_name) }
+        break
     }
+    const hasAtLeastOneField = Object.entries(data).some(([key, value]) => key !== "type" && value.trim().length > 0)
+    return hasAtLeastOneField ? data : null
   }
 
   async function handleSearch() {
@@ -100,6 +112,7 @@ function NewSearchContent() {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Please sign in again")
 
       const searchData = mode === "card_id"
         ? {
@@ -126,11 +139,22 @@ function NewSearchContent() {
 
       let searchId = editId
       if (editId) {
-        await supabase.from("searches").update({ ...insertPayload, new_cards_count: 0 }).eq("id", editId)
+        const { error: updateError } = await supabase
+          .from("searches")
+          .update({ ...insertPayload, new_cards_count: 0 })
+          .eq("id", editId)
+        if (updateError) throw updateError
       } else {
-        const { data } = await supabase.from("searches").insert(insertPayload).select().single()
+        const { data, error: insertError } = await supabase
+          .from("searches")
+          .insert(insertPayload)
+          .select("id")
+          .single()
+        if (insertError) throw insertError
         searchId = data?.id
       }
+
+      if (!searchId) throw new Error("Could not create search. Please try again.")
 
       router.push(`/search/results?id=${searchId}`)
     } catch (e: unknown) {
