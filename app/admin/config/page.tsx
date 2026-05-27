@@ -20,8 +20,6 @@ export default function AdminConfigPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => { loadData() }, [])
-
   async function loadData() {
     const supabase = createClient()
     const [{ data: configData }, { data: pricingData }] = await Promise.all([
@@ -35,6 +33,13 @@ export default function AdminConfigPage() {
     setPricing(pricingData ?? [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timeoutId)
+  }, [])
 
   async function saveConfig() {
     setSaving(true)

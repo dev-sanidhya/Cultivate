@@ -21,28 +21,29 @@ const NAV_ITEMS = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [adminUser, setAdminUser] = useState<{ name: string; role: string } | null>(null)
+  const [adminUser] = useState<{ name: string; role: string } | null>(() => {
+    if (typeof window === "undefined") return null
+    const stored = sessionStorage.getItem("admin_user")
+    if (!stored) return null
+    try {
+      return JSON.parse(stored)
+    } catch {
+      return null
+    }
+  })
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("admin_user")
-    if (!stored) {
-      if (pathname !== "/admin/login") router.push("/admin/login")
-      setChecking(false)
-      return
+    if (!adminUser && pathname !== "/admin/login") {
+      router.push("/admin/login")
     }
-    const parsed = JSON.parse(stored)
-    setAdminUser(parsed)
-    setChecking(false)
-  }, [pathname])
+  }, [adminUser, pathname, router])
 
   function signOut() {
     sessionStorage.removeItem("admin_user")
     router.push("/admin/login")
   }
 
-  if (checking) return null
   if (!adminUser && pathname !== "/admin/login") return null
   if (pathname === "/admin/login") return <>{children}</>
 

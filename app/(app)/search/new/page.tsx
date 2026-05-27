@@ -65,7 +65,8 @@ function NewSearchContent() {
           setHobbies(existingSearch.hobbies ?? [])
           if (existingSearch.tagged_address) {
             setAddressType(existingSearch.tagged_address.type)
-            const { type, ...fields } = existingSearch.tagged_address
+            const fields = { ...existingSearch.tagged_address }
+            delete fields.type
             setAddressFields(fields as Record<string, string>)
           }
         }

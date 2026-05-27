@@ -25,10 +25,6 @@ export default function ChatConversationPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    loadChat()
-  }, [chatId])
-
-  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
@@ -97,6 +93,13 @@ export default function ChatConversationPage() {
     setMessages(msgs ?? [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void loadChat()
+    }, 0)
+    return () => clearTimeout(timeoutId)
+  }, [chatId])
 
   async function sendMessage() {
     if (!newMessage.trim()) return

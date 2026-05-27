@@ -14,8 +14,6 @@ export default function SearchPage() {
   const [searches, setSearches] = useState<SearchType[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadSearches() }, [])
-
   async function loadSearches() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -27,6 +25,13 @@ export default function SearchPage() {
     setSearches(data ?? [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void loadSearches()
+    }, 0)
+    return () => clearTimeout(timeoutId)
+  }, [])
 
   async function deleteSearch(id: string) {
     const supabase = createClient()

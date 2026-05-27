@@ -19,8 +19,6 @@ export default function SavedPage() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState("")
 
-  useEffect(() => { loadData() }, [])
-
   async function loadData() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -44,6 +42,13 @@ export default function SavedPage() {
     setInteractions(allInteractions?.map((i) => ({ ...i, card: undefined })) as CardInteraction[] ?? [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timeoutId)
+  }, [])
 
   async function handleInteraction(card: Card, type: "like" | "save") {
     const supabase = createClient()

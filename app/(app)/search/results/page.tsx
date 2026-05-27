@@ -45,18 +45,6 @@ function SearchResultsContent() {
   const [userId, setUserId] = useState("")
   const [search, setSearch] = useState<Search | null>(null)
 
-  useEffect(() => {
-    loadResults()
-  }, [searchId])
-
-  // Track view counts
-  useEffect(() => {
-    const card = filteredCards[currentIndex]
-    if (!card || !userId) return
-    const supabase = createClient()
-    supabase.from("cards").update({ view_count: card.view_count + 1 }).eq("id", card.id).then(() => {})
-  }, [currentIndex, userId])
-
   async function loadResults() {
     try {
       const supabase = createClient()
@@ -220,6 +208,13 @@ function SearchResultsContent() {
     }
   }
 
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void loadResults()
+    }, 0)
+    return () => clearTimeout(timeoutId)
+  }, [searchId])
+
   async function handleInteraction(card: Card, type: "like" | "save") {
     const supabase = createClient()
     const existing = interactions.find((i) => i.card_id === card.id && i.type === type)
@@ -302,6 +297,14 @@ function SearchResultsContent() {
     if (filter === "Liked") return interactions.some((i) => i.card_id === c.id && i.type === "like")
     return true
   })
+
+  // Track view counts
+  useEffect(() => {
+    const card = filteredCards[currentIndex]
+    if (!card || !userId) return
+    const supabase = createClient()
+    supabase.from("cards").update({ view_count: card.view_count + 1 }).eq("id", card.id).then(() => {})
+  }, [currentIndex, filteredCards, userId])
 
   if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spinner size={32} color="primary" /></div>
 

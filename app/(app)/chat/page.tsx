@@ -22,10 +22,6 @@ export default function ChatPage() {
   const [chats, setChats] = useState<ChatListItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadChats()
-  }, [])
-
   async function loadChats() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -68,6 +64,13 @@ export default function ChatPage() {
     setChats(items)
     setLoading(false)
   }
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void loadChats()
+    }, 0)
+    return () => clearTimeout(timeoutId)
+  }, [])
 
   if (loading) {
     return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spinner size={32} color="primary" /></div>

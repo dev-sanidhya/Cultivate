@@ -220,7 +220,7 @@ function PendingRequestRow({
               style={{ marginTop: 4, fontSize: 14 }}
             />
           ) : (
-            <p style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text)", marginTop: 2 }}>"{req.value}"</p>
+            <p style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text)", marginTop: 2 }}>&quot;{req.value}&quot;</p>
           )}
           <p style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 2 }}>
             by {req.profile?.first_name} {req.profile?.last_name}
