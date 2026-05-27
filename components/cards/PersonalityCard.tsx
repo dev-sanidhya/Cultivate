@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, MoreHorizontal } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
@@ -33,8 +33,6 @@ export function PersonalityCard({
   onMarkRead,
   isRead,
 }: PersonalityCardProps) {
-  const [expanded, setExpanded] = useState(false)
-
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
   const isSaved = interactions.some((i) => i.card_id === card.id && i.type === "save")
 
@@ -147,20 +145,20 @@ export function PersonalityCard({
       {/* Address */}
       {addressLabel && (
         <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 13 }}>📍</span>
+          <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Location:</span>
           <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{addressLabel}</span>
         </div>
       )}
 
       {/* Qualities & Hobbies */}
       {(card.qualities?.length > 0 || card.hobbies?.length > 0) && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-          {card.qualities?.map((q) => (
-            <span key={q} className="tag" style={{ fontSize: 12 }}>✨ {q}</span>
-          ))}
-          {card.hobbies?.map((h) => (
-            <span key={h} className="tag" style={{ fontSize: 12 }}>🎯 {h}</span>
-          ))}
+        <div style={{ marginBottom: 12 }}>
+          {card.qualities?.length > 0 && (
+            <SingleLineTagSection title="Qualities" tags={card.qualities} />
+          )}
+          {card.hobbies?.length > 0 && (
+            <SingleLineTagSection title="Hobbies" tags={card.hobbies} />
+          )}
         </div>
       )}
 
@@ -176,6 +174,8 @@ export function PersonalityCard({
             color: "var(--color-text-secondary)",
             lineHeight: 1.5,
             borderLeft: "3px solid var(--color-primary-light)",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
           }}
         >
           {card.note}
@@ -275,6 +275,85 @@ export function PersonalityCard({
           >
             <MessageCircle size={14} /> Chat
           </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SingleLineTagSection({
+  title,
+  tags,
+}: {
+  title: string
+  tags: string[]
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [isOverflowing, setIsOverflowing] = useState(false)
+  const lineRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (expanded) return
+    const node = lineRef.current
+    if (!node) return
+
+    const checkOverflow = () => {
+      setIsOverflowing(node.scrollWidth > node.clientWidth + 1)
+    }
+
+    checkOverflow()
+    window.addEventListener("resize", checkOverflow)
+    return () => window.removeEventListener("resize", checkOverflow)
+  }, [expanded, tags])
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 6 }}>
+        {title}
+      </div>
+      {expanded ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {tags.map((tag) => (
+            <span key={tag} className="tag" style={{ fontSize: 12, flex: "0 0 auto" }}>
+              {tag}
+            </span>
+          ))}
+          <button
+            onClick={() => setExpanded(false)}
+            className="tag"
+            style={{ fontSize: 12, color: "var(--color-primary)", background: "transparent", cursor: "pointer" }}
+          >
+            Show Less
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div
+            ref={lineRef}
+            style={{
+              display: "flex",
+              flexWrap: "nowrap",
+              overflow: "hidden",
+              gap: 6,
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {tags.map((tag) => (
+              <span key={tag} className="tag" style={{ fontSize: 12, flex: "0 0 auto" }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+          {isOverflowing && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="tag"
+              style={{ fontSize: 12, color: "var(--color-primary)", background: "transparent", cursor: "pointer", flex: "0 0 auto" }}
+            >
+              View All
+            </button>
+          )}
         </div>
       )}
     </div>
