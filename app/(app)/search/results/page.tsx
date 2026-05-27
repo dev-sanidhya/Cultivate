@@ -7,7 +7,6 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
 import { Spinner } from "@/components/ui/Spinner"
-import { PageHeader } from "@/components/ui/PageHeader"
 import type { Card, CardInteraction, Search } from "@/types"
 
 const FILTERS = ["All", "Read", "Unread", "Saved", "Liked"] as const
@@ -298,6 +297,19 @@ function SearchResultsContent() {
     return true
   })
 
+  const filterCounts: Record<Filter, number> = {
+    All: cards.length,
+    Read: cards.filter((c) => reads.has(c.id)).length,
+    Unread: cards.filter((c) => !reads.has(c.id)).length,
+    Saved: cards.filter((c) => interactions.some((i) => i.card_id === c.id && i.type === "save")).length,
+    Liked: cards.filter((c) => interactions.some((i) => i.card_id === c.id && i.type === "like")).length,
+  }
+
+  function getFilterLabel(f: Filter) {
+    const count = filterCounts[f]
+    return count > 0 ? `${f} (${count})` : f
+  }
+
   // Track view counts
   useEffect(() => {
     const card = filteredCards[currentIndex]
@@ -312,10 +324,16 @@ function SearchResultsContent() {
 
   return (
     <div className="page-container" style={{ paddingTop: 20 }}>
-      <PageHeader title="Results" subtitle={`${filteredCards.length} cards found`} showBack />
-
       {/* Filter tabs */}
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, marginBottom: 16, alignItems: "center" }}>
+        <button
+          onClick={() => router.back()}
+          className="btn-ghost"
+          style={{ flex: "0 0 auto", width: 32, height: 32, borderRadius: "50%" }}
+          aria-label="Go back"
+        >
+          <ChevronLeft size={18} />
+        </button>
         {FILTERS.map((f) => (
           <button
             key={f}
@@ -323,7 +341,7 @@ function SearchResultsContent() {
             className={`tag ${filter === f ? "selected" : ""}`}
             style={{ whiteSpace: "nowrap" }}
           >
-            {f}
+            {getFilterLabel(f)}
           </button>
         ))}
       </div>
