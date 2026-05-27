@@ -1,11 +1,14 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { hasSupabaseConfig } from "./lib/supabase/mock"
 
 const PUBLIC_ROUTES = ["/", "/login", "/signup", "/card"]
-const ADMIN_ROUTES = ["/admin"]
-const AUTH_ROUTES = ["/login", "/signup"]
 
 export async function proxy(request: NextRequest) {
+  if (!hasSupabaseConfig()) {
+    return NextResponse.next()
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -33,9 +36,22 @@ export async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname
 
-  // Redirect signed-in users away from auth pages
-  if (user && AUTH_ROUTES.some((r) => path.startsWith(r))) {
+  // Redirect signed-in users away from /login.
+  // Keep /signup accessible for signed-in users who still need profile completion.
+  if (user && path.startsWith("/login")) {
     return NextResponse.redirect(new URL("/home", request.url))
+  }
+
+  if (user && path.startsWith("/signup")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    if (profile) {
+      return NextResponse.redirect(new URL("/home", request.url))
+    }
   }
 
   // Protect app routes

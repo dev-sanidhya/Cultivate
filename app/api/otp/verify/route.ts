@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSyntheticEmail, getDerivedPassword, normalizePhone } from "@/lib/utils/auth"
 import { createAdminClient } from "@/lib/supabase/server"
 
+async function findUserByEmail(
+  supabaseAdmin: Awaited<ReturnType<typeof createAdminClient>>,
+  email: string
+) {
+  let page = 1
+  const perPage = 200
+
+  while (true) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
+    if (error) return null
+
+    const user = data.users.find((u) => u.email === email)
+    if (user) return user
+
+    if (data.users.length < perPage) return null
+    page += 1
+  }
+}
+
 export async function POST(request: NextRequest) {
   const { phone, otp, sessionId } = await request.json()
 
@@ -33,29 +52,44 @@ export async function POST(request: NextRequest) {
   const email = getSyntheticEmail(normalized)
   const password = getDerivedPassword(normalized)
 
-  const supabaseAdmin = await createAdminClient()
+  try {
+    const supabaseAdmin = await createAdminClient()
 
-  // Check if user exists
-  const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
-  const existingUser = existingUsers?.users?.find((u) => u.email === email)
-
-  if (existingUser) {
-    // Sign in existing user
-    const { data: signInData, error: signInError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
+    // Try create first. If the user already exists, resolve them as an existing user.
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
+      password,
+      email_confirm: true,
     })
 
-    if (signInError || !signInData) {
+    if (!createError && newUser?.user) {
+      return NextResponse.json({
+        verified: true,
+        userId: newUser.user.id,
+        email,
+        password,
+        hasProfile: false,
+      })
+    }
+
+    const duplicateEmail =
+      createError?.message?.toLowerCase().includes("already") ||
+      createError?.message?.toLowerCase().includes("registered")
+
+    if (!duplicateEmail) {
+      return NextResponse.json({ error: createError?.message || "Account creation failed." }, { status: 500 })
+    }
+
+    const existingUser = await findUserByEmail(supabaseAdmin, email)
+    if (!existingUser) {
       return NextResponse.json({ error: "Sign in failed." }, { status: 500 })
     }
 
-    // Check if profile exists
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("id")
       .eq("id", existingUser.id)
-      .single()
+      .maybeSingle()
 
     return NextResponse.json({
       verified: true,
@@ -64,24 +98,10 @@ export async function POST(request: NextRequest) {
       password,
       hasProfile: !!profile,
     })
-  } else {
-    // Create new user
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    })
-
-    if (createError || !newUser?.user) {
-      return NextResponse.json({ error: "Account creation failed." }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      verified: true,
-      userId: newUser.user.id,
-      email,
-      password,
-      hasProfile: false,
-    })
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Verification failed. Try again." },
+      { status: 500 }
+    )
   }
 }
