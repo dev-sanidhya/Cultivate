@@ -4,6 +4,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Home, CreditCard, Search, MessageCircle, Bookmark } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { fetchUnreadChatCount } from "@/lib/badges"
 
 const NAV_ITEMS = [
   { href: "/home", icon: Home, label: "Home" },
@@ -16,6 +18,7 @@ const NAV_ITEMS = [
 export function BottomNav() {
   const pathname = usePathname()
   const [isMobile, setIsMobile] = useState(false)
+  const [unreadChats, setUnreadChats] = useState(0)
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)")
@@ -23,6 +26,65 @@ export function BottomNav() {
     update()
     media.addEventListener("change", update)
     return () => media.removeEventListener("change", update)
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    async function loadUnreadChats() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        if (active) setUnreadChats(0)
+        return
+      }
+
+      const count = await fetchUnreadChatCount(supabase, user.id)
+      if (!active) return
+      setUnreadChats(count)
+
+      channel = supabase
+        .channel(`chat-unread:${user.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "messages" },
+          async () => {
+            try {
+              const nextCount = await fetchUnreadChatCount(supabase, user.id)
+              if (active) setUnreadChats(nextCount)
+            } catch {
+              if (active) setUnreadChats(0)
+            }
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "chat_reads", filter: `user_id=eq.${user.id}` },
+          async () => {
+            try {
+              const nextCount = await fetchUnreadChatCount(supabase, user.id)
+              if (active) setUnreadChats(nextCount)
+            } catch {
+              if (active) setUnreadChats(0)
+            }
+          },
+        )
+        .subscribe()
+
+      if (!active && channel) {
+        void supabase.removeChannel(channel)
+      }
+    }
+
+    void loadUnreadChats()
+
+    return () => {
+      active = false
+      if (channel) {
+        void supabase.removeChannel(channel)
+      }
+    }
   }, [])
 
   if (isMobile && pathname.startsWith("/chat/")) {
@@ -73,6 +135,7 @@ export function BottomNav() {
             >
               <div
                 style={{
+                  position: "relative",
                   width: 36,
                   height: 28,
                   borderRadius: 10,
@@ -84,6 +147,21 @@ export function BottomNav() {
                 }}
               >
                 <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+                {label === "Chat" && unreadChats > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      right: 2,
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "#ef4444",
+                      border: "2px solid var(--color-surface)",
+                    }}
+                  />
+                )}
               </div>
               <span style={{ fontSize: 10, fontWeight: active ? 600 : 400 }}>{label}</span>
             </Link>

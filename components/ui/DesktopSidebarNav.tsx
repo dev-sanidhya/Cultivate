@@ -2,7 +2,10 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 import { Home, CreditCard, Search, MessageCircle, Bookmark } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import { fetchUnreadChatCount } from "@/lib/badges"
 
 const NAV_ITEMS = [
   { href: "/home", icon: Home, label: "Home" },
@@ -14,6 +17,66 @@ const NAV_ITEMS = [
 
 export function DesktopSidebarNav() {
   const pathname = usePathname()
+  const [unreadChats, setUnreadChats] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    async function loadUnreadChats() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        if (active) setUnreadChats(0)
+        return
+      }
+
+      const count = await fetchUnreadChatCount(supabase, user.id)
+      if (!active) return
+      setUnreadChats(count)
+
+      channel = supabase
+        .channel(`desktop-chat-unread:${user.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "messages" },
+          async () => {
+            try {
+              const nextCount = await fetchUnreadChatCount(supabase, user.id)
+              if (active) setUnreadChats(nextCount)
+            } catch {
+              if (active) setUnreadChats(0)
+            }
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "chat_reads", filter: `user_id=eq.${user.id}` },
+          async () => {
+            try {
+              const nextCount = await fetchUnreadChatCount(supabase, user.id)
+              if (active) setUnreadChats(nextCount)
+            } catch {
+              if (active) setUnreadChats(0)
+            }
+          },
+        )
+        .subscribe()
+
+      if (!active && channel) {
+        void supabase.removeChannel(channel)
+      }
+    }
+
+    void loadUnreadChats()
+
+    return () => {
+      active = false
+      if (channel) {
+        void supabase.removeChannel(channel)
+      }
+    }
+  }, [])
 
   return (
     <aside className="desktop-sidebar-nav">
@@ -63,7 +126,24 @@ export function DesktopSidebarNav() {
                 transition: "all 0.15s",
               }}
             >
-              <Icon size={18} />
+              <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon size={18} />
+                {label === "Chat" && unreadChats > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: -2,
+                      right: -2,
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "#ef4444",
+                      border: "2px solid var(--color-surface)",
+                    }}
+                  />
+                )}
+              </div>
               <span style={{ fontSize: 15 }}>{label}</span>
             </Link>
           )

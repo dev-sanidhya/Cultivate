@@ -112,6 +112,16 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Chat reads
+CREATE TABLE IF NOT EXISTS chat_reads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  last_read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(chat_id, user_id)
+);
+
 -- Chat unlocks
 CREATE TABLE IF NOT EXISTS chat_unlocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -289,6 +299,7 @@ ALTER TABLE searches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE card_interactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_reads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_unlocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contact_groups ENABLE ROW LEVEL SECURITY;
@@ -333,6 +344,9 @@ CREATE POLICY "messages_participants" ON messages FOR ALL USING (
     AND (chats.initiator_id = auth.uid() OR chats.recipient_id = auth.uid())
   )
 );
+
+-- Chat reads: users manage own read state
+CREATE POLICY "chat_reads_own" ON chat_reads FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- Chat unlocks: users manage own
 CREATE POLICY "chat_unlocks_own" ON chat_unlocks FOR ALL USING (user_id = auth.uid());
