@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
 import { timeAgo } from "@/lib/utils/format"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
+import { markChatAsRead } from "@/lib/badges"
 import type { Message, Profile, Card } from "@/types"
 
 export default function ChatConversationPage() {
@@ -23,7 +24,6 @@ export default function ChatConversationPage() {
   const [theirCard, setTheirCard] = useState<Card | null>(null)
   const [canReply, setCanReply] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [lookingForCategory, setLookingForCategory] = useState("")
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -37,6 +37,14 @@ export default function ChatConversationPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  useEffect(() => {
+    if (loading || !userId || !chatId || messages.length === 0) return
+
+    const supabase = createClient()
+    const lastMessage = messages[messages.length - 1]
+    void markChatAsRead(supabase, chatId, userId, lastMessage?.created_at ?? new Date().toISOString())
+  }, [loading, userId, chatId, messages])
 
   // Realtime subscription
   useEffect(() => {
@@ -81,7 +89,6 @@ export default function ChatConversationPage() {
     setOtherProfile(other)
     setMyCard(myCard)
     setTheirCard(theirCard)
-    setLookingForCategory(chat.looking_for_category)
 
     // Check if user has chat unlock
     const { data: unlock } = await supabase
@@ -185,29 +192,39 @@ export default function ChatConversationPage() {
           size={40}
         />
         <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <span style={{
-              fontSize: 12, fontWeight: 700, color: "var(--color-primary)",
-              background: "var(--color-primary-bg)", padding: "4px 8px", borderRadius: 999,
-            }}>
-              My card #{myCard?.card_id ?? "-"}
-            </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
             <button
               disabled={!theirCard?.card_id}
               onClick={() => {
                 if (theirCard?.card_id) router.push(`/card/${theirCard.card_id}`)
               }}
               style={{
-                fontSize: 12, fontWeight: 700, color: "var(--color-accent)",
-                background: "var(--color-accent-bg)", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--color-accent)",
+                background: "var(--color-accent-bg)",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px 8px",
+                borderRadius: 999,
                 opacity: theirCard?.card_id ? 1 : 0.5,
               }}
             >
               Their card #{theirCard?.card_id ?? "-"}
             </button>
-          </div>
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 4 }}>
-            {lookingForCategory}
+            <span
+              style={{
+                display: "inline-flex",
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--color-primary)",
+                background: "var(--color-primary-bg)",
+                padding: "4px 8px",
+                borderRadius: 999,
+              }}
+            >
+              My card #{myCard?.card_id ?? "-"}
+            </span>
           </div>
         </div>
       </div>
