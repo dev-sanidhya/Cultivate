@@ -21,31 +21,45 @@ const NAV_ITEMS = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [adminUser] = useState<{ name: string; role: string } | null>(() => {
-    if (typeof window === "undefined") return null
-    const stored = sessionStorage.getItem("admin_user")
-    if (!stored) return null
-    try {
-      return JSON.parse(stored)
-    } catch {
-      return null
-    }
-  })
+  const [adminUser, setAdminUser] = useState<{ name: string; role: string } | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    if (!adminUser && pathname !== "/admin/login") {
-      router.push("/admin/login")
+    if (pathname === "/admin/login") {
+      return
     }
-  }, [adminUser, pathname, router])
+
+    const timeoutId = setTimeout(() => {
+      const stored = sessionStorage.getItem("admin_user")
+      if (!stored) {
+        setAuthChecked(true)
+        router.push("/admin/login")
+        return
+      }
+
+      try {
+        setAdminUser(JSON.parse(stored))
+      } catch {
+        sessionStorage.removeItem("admin_user")
+        router.push("/admin/login")
+      } finally {
+        setAuthChecked(true)
+      }
+    }, 0)
+
+    return () => clearTimeout(timeoutId)
+  }, [pathname, router])
 
   function signOut() {
     sessionStorage.removeItem("admin_user")
     router.push("/admin/login")
   }
 
-  if (!adminUser && pathname !== "/admin/login") return null
   if (pathname === "/admin/login") return <>{children}</>
+  if (!authChecked || !adminUser) {
+    return <div style={{ minHeight: "100vh", background: "#F8F7FF" }} />
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F8F7FF" }}>

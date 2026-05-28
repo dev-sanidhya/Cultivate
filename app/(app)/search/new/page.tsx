@@ -183,7 +183,7 @@ function NewSearchContent() {
 
           const normalizeArray = (arr?: string[] | null) =>
             (arr ?? []).map((v) => v.trim()).filter(Boolean).sort()
-          const normalizeAddress = (value: TaggedAddress | null) => {
+          const normalizeAddress = (value?: TaggedAddress | null) => {
             if (!value) return null
             const entries = Object.entries(value)
               .filter(([key, val]) => key === "type" || (typeof val === "string" && val.trim().length > 0))
@@ -201,7 +201,16 @@ function NewSearchContent() {
             tagged_address: normalizeAddress(searchData.tagged_address),
           })
 
-          const existingMatch = (existingFilters ?? []).find((item) => {
+          const existingMatch = (existingFilters ?? []).find((item: {
+            id: string
+            age: number | null
+            gender: string | null
+            looking_for: string | null
+            personality_types?: string[] | null
+            qualities?: string[] | null
+            hobbies?: string[] | null
+            tagged_address?: TaggedAddress | null
+          }) => {
             const itemSignature = JSON.stringify({
               age: item.age ?? null,
               gender: item.gender ?? null,

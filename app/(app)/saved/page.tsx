@@ -39,7 +39,7 @@ export default function SavedPage() {
 
     setLikedCards(liked)
     setSavedCards(saved)
-    setInteractions(allInteractions?.map((i) => ({ ...i, card: undefined })) as CardInteraction[] ?? [])
+    setInteractions(allInteractions?.map((i: CardInteraction & { card?: Card }) => ({ ...i, card: undefined })) as CardInteraction[] ?? [])
     setLoading(false)
   }
 

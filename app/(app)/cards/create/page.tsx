@@ -7,12 +7,17 @@ import { createClient } from "@/lib/supabase/client"
 import { CardForm } from "@/components/cards/CardForm"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { generateCardId } from "@/lib/utils/cardId"
+import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
+import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import type { FieldOption, Gender } from "@/types"
 
 export default function CreateCardPage() {
   const router = useRouter()
   const [fieldOptions, setFieldOptions] = useState<Record<string, FieldOption[]>>({})
   const [gender, setGender] = useState<Gender>("other")
+  const [warningCount, setWarningCount] = useState(0)
+  const [penaltyAmount, setPenaltyAmount] = useState("0")
+  const [penaltyPaidAt, setPenaltyPaidAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -20,12 +25,23 @@ export default function CreateCardPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
 
-      const [{ data: profile }, { data: options }] = await Promise.all([
-        supabase.from("profiles").select("gender").eq("id", user!.id).single(),
+      const [{ data: profile }, { data: options }, { data: penaltyConfig }, { data: warningEvents }] = await Promise.all([
+        supabase.from("profiles").select("gender, contact_detail_warning_count, contact_penalty_paid_at").eq("id", user!.id).single(),
         supabase.from("field_options").select("*").eq("is_approved", true).order("value"),
+        supabase.from("platform_config").select("value").eq("key", "contact_penalty_amount").single(),
+        supabase.from("contact_detail_warnings").select("id").eq("user_id", user!.id),
       ])
 
-      if (profile) setGender(profile.gender as Gender)
+      if (profile) {
+        setGender(profile.gender as Gender)
+        const storedCount = readStoredContactWarningCount(user!.id)
+        const eventCount = Array.isArray(warningEvents) ? warningEvents.length : 0
+        const mergedCount = Math.max(profile.contact_detail_warning_count ?? 0, storedCount, eventCount)
+        setWarningCount(mergedCount)
+        setPenaltyPaidAt(profile.contact_penalty_paid_at ?? null)
+        writeStoredContactWarningCount(user!.id, mergedCount)
+      }
+      if (penaltyConfig?.value) setPenaltyAmount(penaltyConfig.value)
 
       const grouped: Record<string, FieldOption[]> = {}
       for (const opt of options ?? []) {
@@ -52,6 +68,10 @@ export default function CreateCardPage() {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
+      if (warningCount >= CONTACT_WARNING_LIMIT && !penaltyPaidAt) {
+        toast.error(`You cannot create new cards until you pay the contact-details penalty of Rs. ${penaltyAmount}.`)
+        return
+      }
 
       // Generate unique card ID
       let cardId = generateCardId()
@@ -120,6 +140,32 @@ export default function CreateCardPage() {
     }
   }
 
+  async function handleContactDetailsDetected(reason: string) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const nextCount = warningCount + 1
+
+    setWarningCount(nextCount)
+    writeStoredContactWarningCount(user!.id, nextCount)
+    await supabase
+      .from("profiles")
+      .update({ contact_detail_warning_count: nextCount, contact_penalty_paid_at: null })
+      .eq("id", user!.id)
+    await supabase.from("contact_detail_warnings").insert({
+      user_id: user!.id,
+      reason,
+    })
+
+    return {
+      warningCount: nextCount,
+      warningLimit: CONTACT_WARNING_LIMIT,
+      penaltyAmount,
+      blocked: nextCount >= CONTACT_WARNING_LIMIT && !penaltyPaidAt,
+    }
+  }
+
+  const isPenaltyBlocked = warningCount >= CONTACT_WARNING_LIMIT && !penaltyPaidAt
+
   return (
     <div className="page-container" style={{ paddingTop: 20 }}>
       <PageHeader title="Create Card" subtitle="Share who you are" showBack />
@@ -127,9 +173,11 @@ export default function CreateCardPage() {
         gender={gender}
         fieldOptions={fieldOptions}
         onSubmit={handleSubmit}
+        onContactDetailsDetected={handleContactDetailsDetected}
         onCancel={() => router.back()}
         submitLabel="Create Card"
         loading={loading}
+        disabled={isPenaltyBlocked}
       />
     </div>
   )

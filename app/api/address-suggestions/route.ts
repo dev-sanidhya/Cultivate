@@ -21,5 +21,5 @@ export async function GET(request: NextRequest) {
     .order("count", { ascending: false })
     .limit(5)
 
-  return NextResponse.json({ suggestions: data?.map((d) => d.value) ?? [] })
+  return NextResponse.json({ suggestions: data?.map((d: { value: string }) => d.value) ?? [] })
 }

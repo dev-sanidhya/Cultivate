@@ -1,23 +1,37 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
-import { Plus, Lock, Globe, X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
 import { Modal } from "@/components/ui/Modal"
+import { PopupModal } from "@/components/ui/PopupModal"
 import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
+import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
+import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import type { Card, Profile } from "@/types"
 
+type ChatWithProfiles = {
+  initiator_id: string
+  initiator: Profile | null
+  recipient: Profile | null
+}
+
 export default function CardsPage() {
+  const router = useRouter()
   const [cards, setCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
   const [closingCard, setClosingCard] = useState<Card | null>(null)
   const [chatProfiles, setChatProfiles] = useState<Profile[]>([])
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null)
   const [closeLoading, setCloseLoading] = useState(false)
+  const [warningCount, setWarningCount] = useState(0)
+  const [penaltyAmount, setPenaltyAmount] = useState("0")
+  const [penaltyPaidAt, setPenaltyPaidAt] = useState<string | null>(null)
+  const [penaltyModalOpen, setPenaltyModalOpen] = useState(false)
 
   useEffect(() => {
     loadCards()
@@ -28,14 +42,61 @@ export default function CardsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
-      .from("cards")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
+    const [{ data: cardData }, { data: profile }, { data: penaltyConfig }, { data: warningEvents }] = await Promise.all([
+      supabase
+        .from("cards")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("contact_detail_warning_count, contact_penalty_paid_at")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("platform_config")
+        .select("value")
+        .eq("key", "contact_penalty_amount")
+        .single(),
+      supabase
+        .from("contact_detail_warnings")
+        .select("id")
+        .eq("user_id", user.id),
+    ])
 
-    setCards(data ?? [])
+    setCards(cardData ?? [])
+    if (profile) {
+      const storedCount = readStoredContactWarningCount(user.id)
+      const eventCount = Array.isArray(warningEvents) ? warningEvents.length : 0
+      const mergedCount = Math.max(profile.contact_detail_warning_count ?? 0, storedCount, eventCount)
+      setWarningCount(mergedCount)
+      setPenaltyPaidAt(profile.contact_penalty_paid_at ?? null)
+      writeStoredContactWarningCount(user.id, mergedCount)
+    }
+    if (penaltyConfig?.value) setPenaltyAmount(penaltyConfig.value)
     setLoading(false)
+  }
+
+  const isPenaltyBlocked = warningCount >= CONTACT_WARNING_LIMIT && !penaltyPaidAt
+
+  function handleBlockedAction() {
+    setPenaltyModalOpen(true)
+  }
+
+  function handleCreateCard() {
+    if (isPenaltyBlocked) {
+      handleBlockedAction()
+      return
+    }
+    router.push("/cards/create")
+  }
+
+  function handleEditCard(card: Card) {
+    if (isPenaltyBlocked) {
+      handleBlockedAction()
+      return
+    }
+    router.push(`/cards/${card.id}/edit`)
   }
 
   async function handleUnlockChat(card: Card) {
@@ -81,7 +142,7 @@ export default function CardsPage() {
       .or(`initiator_id.eq.${user!.id},recipient_id.eq.${user!.id}`)
 
     const profiles: Profile[] = []
-    chats?.forEach((c) => {
+    chats?.forEach((c: ChatWithProfiles) => {
       const other = c.initiator_id === user!.id ? c.recipient : c.initiator
       if (other && !profiles.find((p) => p.id === other.id)) {
         profiles.push(other as Profile)
@@ -127,17 +188,16 @@ export default function CardsPage() {
             {cards.length} {cards.length === 1 ? "card" : "cards"}
           </p>
         </div>
-        <Link href="/cards/create" style={{ textDecoration: "none" }}>
-          <button
-            style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
-              background: "var(--color-primary)", color: "white", border: "none",
-              borderRadius: 20, fontWeight: 600, fontSize: 14, cursor: "pointer",
-            }}
-          >
-            <Plus size={16} /> New Card
-          </button>
-        </Link>
+        <button
+          onClick={handleCreateCard}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "10px 16px",
+            background: "var(--color-primary)", color: "white", border: "none",
+            borderRadius: 20, fontWeight: 600, fontSize: 14, cursor: "pointer",
+          }}
+        >
+          <Plus size={16} /> New Card
+        </button>
       </div>
 
       {cards.length === 0 ? (
@@ -149,11 +209,9 @@ export default function CardsPage() {
           <p style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 24 }}>
             Create your first Personality Card to start connecting.
           </p>
-          <Link href="/cards/create" style={{ textDecoration: "none" }}>
-            <button className="btn-primary" style={{ maxWidth: 200, margin: "0 auto" }}>
-              Create Card
-            </button>
-          </Link>
+          <button className="btn-primary" style={{ maxWidth: 200, margin: "0 auto" }} onClick={handleCreateCard}>
+            Create Card
+          </button>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -164,7 +222,7 @@ export default function CardsPage() {
               mode="own"
               onUnlockChat={() => handleUnlockChat(card)}
               onClose={() => handleCloseCard(card)}
-              onEdit={() => window.location.href = `/cards/${card.id}/edit`}
+              onEdit={() => handleEditCard(card)}
             />
           ))}
         </div>
@@ -232,6 +290,25 @@ export default function CardsPage() {
           </button>
         </div>
       </Modal>
+
+      <PopupModal
+        open={penaltyModalOpen}
+        tone="danger"
+        title="Penalty payment required"
+        message={
+          <>
+            <p style={{ marginBottom: 12 }}>
+              You have reached {CONTACT_WARNING_LIMIT} warnings for sharing contact details in card notes.
+            </p>
+            <p>
+              Please pay the penalty of ₹{penaltyAmount} to create new cards or edit existing ones.
+            </p>
+          </>
+        }
+        confirmLabel="Understood"
+        onConfirm={() => setPenaltyModalOpen(false)}
+        onClose={() => setPenaltyModalOpen(false)}
+      />
     </div>
   )
 }

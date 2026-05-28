@@ -40,6 +40,8 @@ export interface Profile {
   gender: Gender
   date_of_birth: string
   photo_url: string | null
+  contact_detail_warning_count: number
+  contact_penalty_paid_at: string | null
   created_at: string
 }
 

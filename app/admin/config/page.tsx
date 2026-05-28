@@ -12,6 +12,7 @@ const PLATFORM_KEYS = [
   { key: "twitter_handle", label: "Twitter/X Handle" },
   { key: "upload_contacts_email", label: "Upload Contacts Email" },
   { key: "feedback_email", label: "Feedback Email" },
+  { key: "contact_penalty_amount", label: "Contact Details Penalty Amount (Rs.)" },
 ]
 
 export default function AdminConfigPage() {

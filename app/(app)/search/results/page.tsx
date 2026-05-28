@@ -12,7 +12,7 @@ import type { Card, CardInteraction, Search } from "@/types"
 const FILTERS = ["All", "Read", "Unread", "Saved", "Liked"] as const
 type Filter = (typeof FILTERS)[number]
 
-function getActiveAddressFilter(taggedAddress: Search["tagged_address"]) {
+function getActiveAddressFilter(taggedAddress?: Search["tagged_address"]) {
   if (!taggedAddress) return null
   const activeFieldEntries = Object.entries(taggedAddress).filter(([key, value]) => {
     if (key === "type") return false
@@ -188,7 +188,7 @@ function SearchResultsContent() {
       setInteractions(interactionsData ?? [])
 
       const readSet = new Set<string>(
-        interactionsData?.filter((i) => i.type === "read").map((i) => i.card_id) ?? []
+        interactionsData?.filter((i: CardInteraction) => i.type === "read").map((i: CardInteraction) => i.card_id) ?? []
       )
       setReads(readSet)
     } catch (e: unknown) {

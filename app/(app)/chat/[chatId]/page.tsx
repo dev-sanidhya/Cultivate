@@ -36,7 +36,7 @@ export default function ChatConversationPage() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `chat_id=eq.${chatId}` },
-        (payload) => {
+        (payload: { new: Message }) => {
           setMessages((prev) => [...prev, payload.new as Message])
         }
       )

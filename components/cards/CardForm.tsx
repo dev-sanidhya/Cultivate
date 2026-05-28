@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Plus, X, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 import { moderateNote } from "@/lib/utils/moderation"
+import { PopupModal } from "@/components/ui/PopupModal"
 import type { TaggedAddress, TaggedAddressType, Gender, FieldOption } from "@/types"
 
 interface CardFormData {
@@ -21,9 +22,18 @@ interface CardFormProps {
   gender: Gender
   fieldOptions: Record<string, FieldOption[]>
   onSubmit: (data: CardFormData, customOptions: { field: string; value: string }[]) => Promise<void>
+  onContactDetailsDetected?: (reason: string) => Promise<ContactViolationResult>
   onCancel: () => void
   submitLabel?: string
   loading?: boolean
+  disabled?: boolean
+}
+
+interface ContactViolationResult {
+  warningCount: number
+  warningLimit: number
+  penaltyAmount: string
+  blocked: boolean
 }
 
 type MultiSelectField = "personality_types" | "qualities" | "hobbies"
@@ -33,9 +43,11 @@ export function CardForm({
   gender,
   fieldOptions,
   onSubmit,
+  onContactDetailsDetected,
   onCancel,
   submitLabel = "Create Card",
   loading = false,
+  disabled = false,
 }: CardFormProps) {
   const [age, setAge] = useState(initialData?.age ?? "")
   const [personalityTypes, setPersonalityTypes] = useState<string[]>(initialData?.personality_types ?? [])
@@ -45,6 +57,21 @@ export function CardForm({
   const [hobbies, setHobbies] = useState<string[]>(initialData?.hobbies ?? [])
   const [note, setNote] = useState(initialData?.note ?? "")
   const [noteError, setNoteError] = useState("")
+  const [violationState, setViolationState] = useState<{
+    open: boolean
+    reason: string
+    warningCount: number
+    warningLimit: number
+    penaltyAmount: string
+    blocked: boolean
+  }>({
+    open: false,
+    reason: "",
+    warningCount: 0,
+    warningLimit: 0,
+    penaltyAmount: "0",
+    blocked: false,
+  })
 
   // Address type selection
   const [addressType, setAddressType] = useState<TaggedAddressType | null>(
@@ -91,12 +118,6 @@ export function CardForm({
     toast.info("Custom option submitted for review")
   }
 
-  function handleNoteChange(val: string) {
-    setNote(val)
-    const result = moderateNote(val)
-    setNoteError(result.blocked ? result.reason || "Not allowed" : "")
-  }
-
   function buildTaggedAddress(): TaggedAddress | null {
     if (!addressType) return null
     switch (addressType) {
@@ -140,10 +161,25 @@ export function CardForm({
       toast.error("Select what you're looking for")
       return
     }
-    if (noteError) {
-      toast.error("Fix the note field first")
+
+    const noteModeration = moderateNote(note)
+    if (noteModeration.blocked) {
+      const reason = noteModeration.reason || "Contact details are not allowed in the Note field."
+      setNoteError(reason)
+      const result = await onContactDetailsDetected?.(reason)
+      if (result) {
+        setViolationState({
+          open: true,
+          reason,
+          warningCount: result.warningCount,
+          warningLimit: result.warningLimit,
+          penaltyAmount: result.penaltyAmount,
+          blocked: result.blocked,
+        })
+      }
       return
     }
+    setNoteError("")
 
     const data: CardFormData = {
       age,
@@ -161,8 +197,32 @@ export function CardForm({
   const getOptions = (field: string) =>
     fieldOptions[field]?.map((o) => o.value) ?? []
 
+  const warningsLeft = Math.max(violationState.warningLimit - violationState.warningCount, 0)
+  const warningWord = warningsLeft === 1 ? "warning" : "warnings"
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <>
+      <PopupModal
+        open={violationState.open}
+        tone={violationState.blocked ? "danger" : "warning"}
+        title={`Warning ${violationState.warningCount}/${violationState.warningLimit}`}
+        message={
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <p style={{ margin: 0 }}>
+              Sharing your contact details in the Notes field is strictly prohibited, as it violates the platform&apos;s policy.
+            </p>
+            <p style={{ margin: 0 }}>
+              {violationState.blocked
+                ? `Penalty of ₹${violationState.penaltyAmount} is imposed on your account for violating platform's policy multiple times.`
+                : `After ${warningsLeft} more ${warningWord}, a penalty of ₹${violationState.penaltyAmount} will be imposed on your account.`}
+            </p>
+          </div>
+        }
+        confirmLabel={violationState.blocked ? "Understood" : "I'll fix it"}
+        onConfirm={() => setViolationState((prev) => ({ ...prev, open: false }))}
+      />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Age */}
       <div>
         <label className="label">Age *</label>
@@ -414,9 +474,13 @@ export function CardForm({
           className="input"
           placeholder="Anything extra you'd like to share..."
           value={note}
-          onChange={(e) => handleNoteChange(e.target.value)}
+          onChange={(e) => {
+            setNote(e.target.value)
+            if (noteError) setNoteError("")
+          }}
           rows={3}
           style={{ resize: "none" }}
+          disabled={disabled}
         />
         {noteError && (
           <p style={{ fontSize: 12, color: "var(--color-error)", marginTop: 4 }}>{noteError}</p>
@@ -434,13 +498,14 @@ export function CardForm({
         <button
           className="btn-primary"
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={loading || disabled}
           style={{ flex: 2 }}
         >
           {loading ? "Saving..." : submitLabel}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
 

@@ -53,7 +53,9 @@ function createChannelMock() {
   }
 }
 
-export function createMockSupabaseClient() {
+// The mock intentionally stays permissive because app queries use Supabase's fluent API in many shapes.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createMockSupabaseClient(): any {
   return {
     auth: {
       getUser: () => ok({ user: null }),
