@@ -89,7 +89,7 @@ export default function ChatPage() {
 
   return (
     <div style={{ paddingTop: 12 }}>
-      <div className="page-container">
+      <div className="page-container" style={{ paddingBottom: 0 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", marginBottom: 12 }}>Messages</h1>
       </div>
 
