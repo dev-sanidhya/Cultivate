@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck } from "lucide-react"
+import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2 } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
@@ -17,6 +17,7 @@ interface PersonalityCardProps {
   onClose?: () => void
   onEdit?: () => void
   onMarkRead?: (read: boolean) => void
+  onFullscreen?: () => void
   isRead?: boolean
 }
 
@@ -31,6 +32,7 @@ export function PersonalityCard({
   onClose,
   onEdit,
   onMarkRead,
+  onFullscreen,
   isRead,
 }: PersonalityCardProps) {
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
@@ -57,6 +59,33 @@ export function PersonalityCard({
         opacity: card.is_closed ? 0.7 : 1,
       }}
     >
+      {mode === "search" && onFullscreen && (
+        <button
+          onClick={onFullscreen}
+          aria-label="Open fullscreen"
+          title="Open fullscreen"
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            border: "1px solid var(--color-border)",
+            background: "rgba(255,255,255,0.96)",
+            color: "var(--color-text-secondary)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 8px 24px rgba(99, 102, 241, 0.10)",
+            zIndex: 2,
+          }}
+        >
+          <Maximize2 size={15} />
+        </button>
+      )}
+
       {/* Top row: Card ID + status */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

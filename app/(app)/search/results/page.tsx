@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useRef, useState, Suspense, type PointerEvent as ReactPointerEvent } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
@@ -40,9 +40,11 @@ function SearchResultsContent() {
   const [reads, setReads] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<Filter>("All")
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState("")
   const [search, setSearch] = useState<Search | null>(null)
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null)
 
   async function loadResults() {
     try {
@@ -232,20 +234,39 @@ function SearchResultsContent() {
 
   async function handleMarkRead(card: Card, read: boolean) {
     const supabase = createClient()
+    setReads((prev) => {
+      const next = new Set(prev)
+      if (read) next.add(card.id)
+      else next.delete(card.id)
+      return next
+    })
+
     if (read) {
-      const { data } = await supabase.from("card_interactions").insert({
+      const { error } = await supabase.from("card_interactions").insert({
         user_id: userId, card_id: card.id, type: "read",
-      }).select().single()
-      if (data) setInteractions((prev) => [...prev, data])
-      setReads((prev) => new Set([...prev, card.id]))
+      })
+      if (error) {
+        setReads((prev) => {
+          const next = new Set(prev)
+          next.delete(card.id)
+          return next
+        })
+        toast.error(error.message)
+      }
     } else {
-      await supabase.from("card_interactions")
+      const { error } = await supabase.from("card_interactions")
         .delete()
         .eq("user_id", userId)
         .eq("card_id", card.id)
         .eq("type", "read")
-      setInteractions((prev) => prev.filter((i) => !(i.card_id === card.id && i.type === "read")))
-      setReads((prev) => { const s = new Set(prev); s.delete(card.id); return s })
+      if (error) {
+        setReads((prev) => {
+          const next = new Set(prev)
+          next.add(card.id)
+          return next
+        })
+        toast.error(error.message)
+      }
     }
   }
 
@@ -310,6 +331,50 @@ function SearchResultsContent() {
     return count > 0 ? `${f} (${count})` : f
   }
 
+  function setActiveCardIndex(nextIndex: number) {
+    setCurrentIndex(nextIndex)
+    setFullscreenIndex((prev) => (prev === null ? prev : nextIndex))
+  }
+
+  function openFullscreen(index: number) {
+    setCurrentIndex(index)
+    setFullscreenIndex(index)
+  }
+
+  function closeFullscreen() {
+    setFullscreenIndex(null)
+  }
+
+  function stepFullscreen(direction: -1 | 1) {
+    const baseIndex = fullscreenIndex ?? currentIndex
+    const nextIndex = Math.min(filteredCards.length - 1, Math.max(0, baseIndex + direction))
+    if (nextIndex !== baseIndex) {
+      setActiveCardIndex(nextIndex)
+    }
+  }
+
+  function handleSwipeStart(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return
+    swipeStartRef.current = { x: event.clientX, y: event.clientY }
+  }
+
+  function handleSwipeEnd(event: ReactPointerEvent<HTMLDivElement>) {
+    const start = swipeStartRef.current
+    swipeStartRef.current = null
+    if (!start || fullscreenIndex === null) return
+
+    const dx = event.clientX - start.x
+    const dy = event.clientY - start.y
+    const isHorizontalSwipe = Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.2
+    if (!isHorizontalSwipe) return
+
+    if (dx < 0) {
+      stepFullscreen(1)
+    } else {
+      stepFullscreen(-1)
+    }
+  }
+
   // Track view counts
   useEffect(() => {
     const card = filteredCards[currentIndex]
@@ -318,9 +383,56 @@ function SearchResultsContent() {
     supabase.from("cards").update({ view_count: card.view_count + 1 }).eq("id", card.id).then(() => {})
   }, [currentIndex, filteredCards, userId])
 
-  if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spinner size={32} color="primary" /></div>
+  useEffect(() => {
+    if (fullscreenIndex === null) return
 
-  const card = filteredCards[currentIndex]
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeFullscreen()
+        return
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault()
+        const baseIndex = fullscreenIndex ?? currentIndex
+        const nextIndex = Math.max(0, baseIndex - 1)
+        if (nextIndex !== baseIndex) {
+          setActiveCardIndex(nextIndex)
+        }
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault()
+        const baseIndex = fullscreenIndex ?? currentIndex
+        const nextIndex = Math.min(filteredCards.length - 1, baseIndex + 1)
+        if (nextIndex !== baseIndex) {
+          setActiveCardIndex(nextIndex)
+        }
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [fullscreenIndex, currentIndex, filteredCards.length])
+
+  const activeCurrentIndex = filteredCards.length > 0 ? Math.min(currentIndex, filteredCards.length - 1) : 0
+  const activeFullscreenIndex = fullscreenIndex === null
+    ? null
+    : filteredCards.length > 0
+      ? Math.min(fullscreenIndex, filteredCards.length - 1)
+      : null
+  const fullscreenDisplayIndex = activeFullscreenIndex ?? 0
+  const card = filteredCards[activeCurrentIndex]
+  const fullscreenCard = activeFullscreenIndex !== null ? filteredCards[activeFullscreenIndex] : null
+
+  useEffect(() => {
+    if (activeFullscreenIndex === null) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [activeFullscreenIndex])
+
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spinner size={32} color="primary" /></div>
 
   return (
     <div className="page-container" style={{ paddingTop: 20 }}>
@@ -368,6 +480,7 @@ function SearchResultsContent() {
                 onSave={() => handleInteraction(card, "save")}
                 onMarkRead={(read) => handleMarkRead(card, read)}
                 onChat={() => handleChat(card)}
+                onFullscreen={() => openFullscreen(activeCurrentIndex)}
               />
             )}
           </div>
@@ -376,13 +489,13 @@ function SearchResultsContent() {
           {filteredCards.length > 1 && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, marginTop: 20 }}>
               <button
-                onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-                disabled={currentIndex === 0}
+                onClick={() => setActiveCardIndex(Math.max(0, activeCurrentIndex - 1))}
+                disabled={activeCurrentIndex === 0}
                 style={{
                   width: 44, height: 44, borderRadius: "50%",
-                  background: currentIndex === 0 ? "var(--color-border-light)" : "var(--color-primary)",
-                  color: currentIndex === 0 ? "var(--color-text-muted)" : "white",
-                  border: "none", cursor: currentIndex === 0 ? "default" : "pointer",
+                  background: activeCurrentIndex === 0 ? "var(--color-border-light)" : "var(--color-primary)",
+                  color: activeCurrentIndex === 0 ? "var(--color-text-muted)" : "white",
+                  border: "none", cursor: activeCurrentIndex === 0 ? "default" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
@@ -390,17 +503,17 @@ function SearchResultsContent() {
               </button>
 
               <span style={{ fontSize: 14, color: "var(--color-text-secondary)", fontWeight: 600 }}>
-                {currentIndex + 1} / {filteredCards.length}
+                {activeCurrentIndex + 1} / {filteredCards.length}
               </span>
 
               <button
-                onClick={() => setCurrentIndex((i) => Math.min(filteredCards.length - 1, i + 1))}
-                disabled={currentIndex === filteredCards.length - 1}
+                onClick={() => setActiveCardIndex(Math.min(filteredCards.length - 1, activeCurrentIndex + 1))}
+                disabled={activeCurrentIndex === filteredCards.length - 1}
                 style={{
                   width: 44, height: 44, borderRadius: "50%",
-                  background: currentIndex === filteredCards.length - 1 ? "var(--color-border-light)" : "var(--color-primary)",
-                  color: currentIndex === filteredCards.length - 1 ? "var(--color-text-muted)" : "white",
-                  border: "none", cursor: currentIndex === filteredCards.length - 1 ? "default" : "pointer",
+                  background: activeCurrentIndex === filteredCards.length - 1 ? "var(--color-border-light)" : "var(--color-primary)",
+                  color: activeCurrentIndex === filteredCards.length - 1 ? "var(--color-text-muted)" : "white",
+                  border: "none", cursor: activeCurrentIndex === filteredCards.length - 1 ? "default" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
@@ -408,6 +521,134 @@ function SearchResultsContent() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {fullscreenCard && activeFullscreenIndex !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Card fullscreen viewer"
+          onClick={closeFullscreen}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 70,
+            background: "rgba(17, 24, 39, 0.82)",
+            backdropFilter: "blur(10px)",
+            display: "flex",
+            flexDirection: "column",
+            padding: "12px",
+          }}
+        >
+          <button
+            aria-label="Close fullscreen"
+            onClick={closeFullscreen}
+            style={{
+              position: "absolute",
+              top: 14,
+              right: 14,
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.16)",
+              background: "rgba(255,255,255,0.12)",
+              color: "white",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              zIndex: 2,
+            }}
+          >
+            <X size={18} />
+          </button>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 40, marginBottom: 12, color: "white", fontSize: 14, fontWeight: 700 }}>
+            {fullscreenDisplayIndex + 1} / {filteredCards.length}
+          </div>
+
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              onPointerDown={handleSwipeStart}
+              onPointerUp={handleSwipeEnd}
+              onPointerCancel={() => {
+                swipeStartRef.current = null
+              }}
+              onPointerLeave={() => {
+                swipeStartRef.current = null
+              }}
+              style={{
+                width: "100%",
+                maxWidth: 680,
+                maxHeight: "calc(100dvh - 120px)",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+                touchAction: "pan-y",
+                borderRadius: 28,
+                boxShadow: "0 30px 90px rgba(0, 0, 0, 0.28)",
+              }}
+            >
+              <PersonalityCard
+                card={fullscreenCard}
+                mode="search"
+                interactions={interactions}
+                isRead={reads.has(fullscreenCard.id)}
+                onLike={() => handleInteraction(fullscreenCard, "like")}
+                onSave={() => handleInteraction(fullscreenCard, "save")}
+                onMarkRead={(read) => handleMarkRead(fullscreenCard, read)}
+                onChat={() => handleChat(fullscreenCard)}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 12 }}>
+            <button
+              onClick={() => stepFullscreen(-1)}
+              disabled={activeFullscreenIndex === 0}
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: "50%",
+                background: activeFullscreenIndex === 0 ? "rgba(255,255,255,0.16)" : "white",
+                color: activeFullscreenIndex === 0 ? "rgba(255,255,255,0.5)" : "var(--color-primary)",
+                border: "none",
+                cursor: activeFullscreenIndex === 0 ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ChevronLeft size={22} />
+            </button>
+            <button
+              onClick={() => stepFullscreen(1)}
+              disabled={activeFullscreenIndex === filteredCards.length - 1}
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: "50%",
+                background: activeFullscreenIndex === filteredCards.length - 1 ? "rgba(255,255,255,0.16)" : "white",
+                color: activeFullscreenIndex === filteredCards.length - 1 ? "rgba(255,255,255,0.5)" : "var(--color-primary)",
+                border: "none",
+                cursor: activeFullscreenIndex === filteredCards.length - 1 ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ChevronRight size={22} />
+            </button>
+          </div>
         </div>
       )}
     </div>
