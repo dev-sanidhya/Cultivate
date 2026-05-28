@@ -7,7 +7,8 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
 import { timeAgo } from "@/lib/utils/format"
-import type { Message, Profile, Card, ChatUnlock } from "@/types"
+import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
+import type { Message, Profile, Card } from "@/types"
 
 export default function ChatConversationPage() {
   const { chatId } = useParams<{ chatId: string }>()
@@ -18,8 +19,8 @@ export default function ChatConversationPage() {
   const [sending, setSending] = useState(false)
   const [userId, setUserId] = useState("")
   const [otherProfile, setOtherProfile] = useState<Profile | null>(null)
-  const [otherCard, setOtherCard] = useState<Card | null>(null)
-  const [chatUnlock, setChatUnlock] = useState<ChatUnlock | null>(null)
+  const [myCard, setMyCard] = useState<Card | null>(null)
+  const [theirCard, setTheirCard] = useState<Card | null>(null)
   const [canReply, setCanReply] = useState(false)
   const [loading, setLoading] = useState(true)
   const [lookingForCategory, setLookingForCategory] = useState("")
@@ -65,6 +66,7 @@ export default function ChatConversationPage() {
         *,
         initiator:initiator_id(id, first_name, last_name, photo_url, gender, date_of_birth, phone),
         recipient:recipient_id(id, first_name, last_name, photo_url, gender, date_of_birth, phone),
+        initiator_card:initiator_card_id(*),
         recipient_card:recipient_card_id(*)
       `)
       .eq("id", chatId)
@@ -74,10 +76,11 @@ export default function ChatConversationPage() {
 
     const isInitiator = chat.initiator_id === user!.id
     const other = (isInitiator ? chat.recipient : chat.initiator) as unknown as Profile
-    const card = chat.recipient_card as unknown as Card
+    const { myCard, theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user!.id)
 
     setOtherProfile(other)
-    setOtherCard(card)
+    setMyCard(myCard)
+    setTheirCard(theirCard)
     setLookingForCategory(chat.looking_for_category)
 
     // Check if user has chat unlock
@@ -90,7 +93,6 @@ export default function ChatConversationPage() {
       .limit(1)
       .single()
 
-    setChatUnlock(unlock ?? null)
     setCanReply(!!unlock)
 
     const { data: msgs } = await supabase
@@ -183,16 +185,28 @@ export default function ChatConversationPage() {
           size={40}
         />
         <div style={{ flex: 1 }}>
-          <button
-            onClick={() => router.push(`/card/${otherCard?.card_id}`)}
-            style={{
-              fontSize: 15, fontWeight: 700, color: "var(--color-primary)",
-              background: "none", border: "none", cursor: "pointer", padding: 0,
-            }}
-          >
-            #{otherCard?.card_id}
-          </button>
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <span style={{
+              fontSize: 12, fontWeight: 700, color: "var(--color-primary)",
+              background: "var(--color-primary-bg)", padding: "4px 8px", borderRadius: 999,
+            }}>
+              My card #{myCard?.card_id ?? "-"}
+            </span>
+            <button
+              disabled={!theirCard?.card_id}
+              onClick={() => {
+                if (theirCard?.card_id) router.push(`/card/${theirCard.card_id}`)
+              }}
+              style={{
+                fontSize: 12, fontWeight: 700, color: "var(--color-accent)",
+                background: "var(--color-accent-bg)", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 999,
+                opacity: theirCard?.card_id ? 1 : 0.5,
+              }}
+            >
+              Their card #{theirCard?.card_id ?? "-"}
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 4 }}>
             {lookingForCategory}
           </div>
         </div>

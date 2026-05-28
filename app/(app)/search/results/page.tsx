@@ -6,8 +6,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
+import { ChatCardPickerModal } from "@/components/chat/ChatCardPickerModal"
 import { Spinner } from "@/components/ui/Spinner"
 import type { Card, CardInteraction, Search } from "@/types"
+import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
 
 const FILTERS = ["All", "Read", "Unread", "Saved", "Liked"] as const
 type Filter = (typeof FILTERS)[number]
@@ -44,6 +46,8 @@ function SearchResultsContent() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState("")
   const [search, setSearch] = useState<Search | null>(null)
+  const [chatTargetCard, setChatTargetCard] = useState<Card | null>(null)
+  const [shareCards, setShareCards] = useState<Card[]>([])
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null)
 
   async function loadResults() {
@@ -271,42 +275,64 @@ function SearchResultsContent() {
   }
 
   async function handleChat(card: Card) {
-    // Check if user has a matching unlocked card
-    const supabase = createClient()
-    const { data: unlocks } = await supabase
-      .from("chat_unlocks")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("looking_for_category", card.looking_for)
-      .gt("expires_at", new Date().toISOString())
+    try {
+      const supabase = createClient()
+      const { data: unlocks } = await supabase
+        .from("chat_unlocks")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("looking_for_category", card.looking_for)
+        .gt("expires_at", new Date().toISOString())
 
-    if (!unlocks?.length) {
-      toast.error(`You need an active card with "Looking For: ${card.looking_for}" to chat.`)
-      router.push("/cards")
-      return
+      if (!unlocks?.length) {
+        toast.error(`You need an active card with "Looking For: ${card.looking_for}" to chat.`)
+        router.push("/cards")
+        return
+      }
+
+      const eligibleCards = await fetchEligibleShareCards(supabase, userId, card.looking_for)
+
+      if (eligibleCards.length === 0) {
+        toast.error(`No enabled card found with "Looking For: ${card.looking_for}".`)
+        return
+      }
+
+      if (eligibleCards.length === 1) {
+        const chatId = await createChatForCardPair(supabase, {
+          userId,
+          otherUserId: card.user_id,
+          myCard: eligibleCards[0],
+          theirCard: card,
+        })
+        if (chatId) router.push(`/chat/${chatId}`)
+        return
+      }
+
+      setChatTargetCard(card)
+      setShareCards(eligibleCards)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to start chat"
+      toast.error(message)
     }
+  }
 
-    // Create or find chat
-    const { data: existingChat } = await supabase
-      .from("chats")
-      .select("id")
-      .or(`and(initiator_id.eq.${userId},recipient_id.eq.${card.user_id}),and(initiator_id.eq.${card.user_id},recipient_id.eq.${userId})`)
-      .single()
-
-    if (existingChat) {
-      router.push(`/chat/${existingChat.id}`)
-      return
+  async function handleShareCardSelect(myCard: Card) {
+    if (!chatTargetCard) return
+    try {
+      const supabase = createClient()
+      const chatId = await createChatForCardPair(supabase, {
+        userId,
+        otherUserId: chatTargetCard.user_id,
+        myCard,
+        theirCard: chatTargetCard,
+      })
+      setChatTargetCard(null)
+      setShareCards([])
+      if (chatId) router.push(`/chat/${chatId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to start chat"
+      toast.error(message)
     }
-
-    const { data: newChat } = await supabase.from("chats").insert({
-      initiator_id: userId,
-      recipient_id: card.user_id,
-      initiator_card_id: unlocks[0].card_id,
-      recipient_card_id: card.id,
-      looking_for_category: card.looking_for,
-    }).select().single()
-
-    if (newChat) router.push(`/chat/${newChat.id}`)
   }
 
   const filteredCards = cards.filter((c) => {
@@ -606,6 +632,17 @@ function SearchResultsContent() {
           </div>
         </div>
       )}
+
+      <ChatCardPickerModal
+        open={!!chatTargetCard}
+        targetCard={chatTargetCard}
+        cards={shareCards}
+        onSelect={handleShareCardSelect}
+        onClose={() => {
+          setChatTargetCard(null)
+          setShareCards([])
+        }}
+      />
     </div>
   )
 }

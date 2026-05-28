@@ -6,13 +6,14 @@ import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
 import { timeAgo } from "@/lib/utils/format"
+import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
 import type { Chat, Profile, Card, Message } from "@/types"
-import { MessageCircle } from "lucide-react"
 
 interface ChatListItem {
   chat: Chat
   otherProfile: Profile
-  otherCard: Card
+  myCard: Card | null
+  theirCard: Card | null
   lastMessage: Message | null
   unread: number
 }
@@ -25,6 +26,7 @@ export default function ChatPage() {
   async function loadChats() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
     const { data: chatData } = await supabase
       .from("chats")
@@ -35,14 +37,13 @@ export default function ChatPage() {
         initiator_card:initiator_card_id(id, card_id, looking_for),
         recipient_card:recipient_card_id(id, card_id, looking_for)
       `)
-      .or(`initiator_id.eq.${user!.id},recipient_id.eq.${user!.id}`)
+      .or(`initiator_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order("last_message_at", { ascending: false, nullsFirst: false })
 
     const items: ChatListItem[] = []
     for (const chat of chatData ?? []) {
-      const isInitiator = chat.initiator_id === user!.id
-      const otherProfile = (isInitiator ? chat.recipient : chat.initiator) as unknown as Profile
-      const otherCard = (isInitiator ? chat.recipient_card : chat.initiator_card) as unknown as Card
+      const otherProfile = ((chat.initiator_id === user.id ? chat.recipient : chat.initiator) ?? null) as Profile | null
+      const { myCard, theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
 
       const { data: lastMsg } = await supabase
         .from("messages")
@@ -50,12 +51,24 @@ export default function ChatPage() {
         .eq("chat_id", chat.id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       items.push({
         chat,
-        otherProfile,
-        otherCard,
+        otherProfile: otherProfile ?? {
+          id: "",
+          phone: "",
+          first_name: "",
+          last_name: "",
+          gender: "other",
+          date_of_birth: "",
+          photo_url: null,
+          contact_detail_warning_count: 0,
+          contact_penalty_paid_at: null,
+          created_at: "",
+        },
+        myCard,
+        theirCard,
         lastMessage: lastMsg ?? null,
         unread: 0,
       })
@@ -92,7 +105,7 @@ export default function ChatPage() {
         </div>
       ) : (
         <div>
-          {chats.map(({ chat, otherProfile, otherCard, lastMessage, unread }) => (
+          {chats.map(({ chat, otherProfile, myCard, theirCard, lastMessage }) => (
             <div
               key={chat.id}
               role="button"
@@ -111,6 +124,7 @@ export default function ChatPage() {
                 gap: 14,
                 padding: "14px 20px",
                 background: "none",
+                border: "none",
                 borderBottom: "1px solid var(--color-border-light)",
                 cursor: "pointer",
                 textAlign: "left",
@@ -125,29 +139,72 @@ export default function ChatPage() {
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); router.push(`/card/${otherCard?.card_id}`) }}
-                    style={{
-                      fontSize: 14, fontWeight: 700, color: "var(--color-primary)",
-                      background: "var(--color-primary-bg)", border: "none",
-                      padding: "2px 8px", borderRadius: 20, cursor: "pointer",
-                    }}
-                  >
-                    #{otherCard?.card_id}
-                  </button>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text)" }}>
+                    {otherProfile?.first_name} {otherProfile?.last_name}
+                  </span>
                   <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
                     {lastMessage ? timeAgo(lastMessage.created_at) : ""}
                   </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: "var(--color-text-secondary)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      flex: 1,
+                    }}
+                  >
                     {lastMessage?.content ?? "No messages yet"}
                   </span>
-                  <span style={{
-                    fontSize: 11, color: "var(--color-accent)", fontWeight: 600,
-                    marginLeft: 8, background: "var(--color-accent-bg)", padding: "1px 6px", borderRadius: 10,
-                  }}>
-                    {otherCard?.looking_for}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--color-primary)",
+                      fontWeight: 700,
+                      background: "var(--color-primary-bg)",
+                      padding: "4px 8px",
+                      borderRadius: 999,
+                    }}
+                  >
+                    My card #{myCard?.card_id ?? "-"}
+                  </span>
+                  <button
+                    disabled={!theirCard?.card_id}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (theirCard?.card_id) router.push(`/card/${theirCard.card_id}`)
+                    }}
+                    style={{
+                      fontSize: 11,
+                      color: "var(--color-accent)",
+                      fontWeight: 700,
+                      background: "var(--color-accent-bg)",
+                      padding: "4px 8px",
+                      borderRadius: 999,
+                      border: "none",
+                      cursor: "pointer",
+                      opacity: theirCard?.card_id ? 1 : 0.5,
+                    }}
+                  >
+                    Their card #{theirCard?.card_id ?? "-"}
+                  </button>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--color-text-secondary)",
+                      fontWeight: 600,
+                      marginLeft: "auto",
+                      background: "var(--color-border-light)",
+                      padding: "4px 8px",
+                      borderRadius: 999,
+                    }}
+                  >
+                    {theirCard?.looking_for}
                   </span>
                 </div>
               </div>
