@@ -18,6 +18,7 @@ interface PersonalityCardProps {
   onEdit?: () => void
   onMarkRead?: (read: boolean) => void
   onFullscreen?: () => void
+  showBrandMark?: boolean
   isRead?: boolean
 }
 
@@ -33,6 +34,7 @@ export function PersonalityCard({
   onEdit,
   onMarkRead,
   onFullscreen,
+  showBrandMark,
   isRead,
 }: PersonalityCardProps) {
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
@@ -59,6 +61,28 @@ export function PersonalityCard({
         opacity: card.is_closed ? 0.7 : 1,
       }}
     >
+      {showBrandMark && (
+        <span
+          style={{
+            position: "absolute",
+            top: 18,
+            right: 20,
+            fontSize: 18,
+            fontWeight: 800,
+            lineHeight: 1,
+            background: "linear-gradient(135deg, #7C3AED, #EC4899)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            letterSpacing: -0.2,
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        >
+          Strefo
+        </span>
+      )}
+
       {mode === "search" && onFullscreen && (
         <button
           onClick={onFullscreen}

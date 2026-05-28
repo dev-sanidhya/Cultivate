@@ -550,8 +550,8 @@ function SearchResultsContent() {
             position: "fixed",
             inset: 0,
             zIndex: 70,
-            background: "rgba(17, 24, 39, 0.82)",
-            backdropFilter: "blur(10px)",
+            background: "linear-gradient(180deg, rgba(245, 243, 255, 0.96) 0%, rgba(250, 250, 250, 0.95) 48%, rgba(253, 242, 248, 0.92) 100%)",
+            backdropFilter: "blur(14px)",
             display: "flex",
             flexDirection: "column",
             padding: "12px",
@@ -596,6 +596,7 @@ function SearchResultsContent() {
                 onSave={() => handleInteraction(fullscreenCard, "save")}
                 onMarkRead={(read) => handleMarkRead(fullscreenCard, read)}
                 onChat={() => handleChat(fullscreenCard)}
+                showBrandMark
               />
             </div>
           </div>
