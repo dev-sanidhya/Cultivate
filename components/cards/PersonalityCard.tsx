@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock } from "lucide-react"
+import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
@@ -100,6 +100,15 @@ export function PersonalityCard({
                 <Bookmark size={13} />
                 <span>{card.save_count}</span>
               </div>
+              <button
+                className="btn-ghost"
+                style={{ padding: 6 }}
+                onClick={shareCard}
+                aria-label="Share"
+                title="Share"
+              >
+                <Share2 size={15} color="var(--color-text-secondary)" />
+              </button>
             </>
           )}
         </div>
@@ -276,13 +285,14 @@ export function PersonalityCard({
               width: 42,
               height: 42,
               border: "none",
-              background: "transparent",
-              color: "var(--color-text-secondary)",
+              background: isRead ? "var(--color-primary-bg)" : "transparent",
+              color: isRead ? "var(--color-primary)" : "var(--color-text-secondary)",
               cursor: "pointer",
               padding: 0,
+              borderRadius: 999,
             }}
           >
-            <Eye size={18} />
+            {isRead ? <BookCheck size={18} /> : <BookOpen size={18} />}
           </button>
           <button
             onClick={shareCard}
