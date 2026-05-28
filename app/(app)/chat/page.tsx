@@ -141,11 +141,20 @@ export default function ChatPage() {
                   <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text)" }}>
                     #{theirCard?.card_id ?? "-"}
                   </span>
-                  <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
-                    {lastMessage ? timeAgo(lastMessage.created_at) : ""}
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--color-text-secondary)",
+                      fontWeight: 600,
+                      background: "var(--color-border-light)",
+                      padding: "4px 8px",
+                      borderRadius: 999,
+                    }}
+                  >
+                    {theirCard?.looking_for}
                   </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                   <span
                     style={{
                       fontSize: 13,
@@ -158,19 +167,16 @@ export default function ChatPage() {
                   >
                     {lastMessage?.content ?? "No messages yet"}
                   </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
                   <span
                     style={{
                       fontSize: 11,
-                      color: "var(--color-text-secondary)",
-                      fontWeight: 600,
-                      background: "var(--color-border-light)",
-                      padding: "4px 8px",
-                      borderRadius: 999,
+                      color: "var(--color-text-muted)",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      marginTop: 1,
                     }}
                   >
-                    {theirCard?.looking_for}
+                    {lastMessage ? timeAgo(lastMessage.created_at) : ""}
                   </span>
                 </div>
               </div>
