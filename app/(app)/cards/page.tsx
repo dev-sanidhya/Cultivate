@@ -31,6 +31,7 @@ export default function CardsPage() {
   const [warningCount, setWarningCount] = useState(0)
   const [penaltyAmount, setPenaltyAmount] = useState("0")
   const [penaltyPaidAt, setPenaltyPaidAt] = useState<string | null>(null)
+  const [supportEmail, setSupportEmail] = useState<string>("")
   const [penaltyModalOpen, setPenaltyModalOpen] = useState(false)
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function CardsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const [{ data: cardData }, { data: profile }, { data: penaltyConfig }, { data: warningEvents }] = await Promise.all([
+    const [{ data: cardData }, { data: profile }, { data: penaltyConfig }, { data: warningEvents }, { data: supportConfig }, { data: feedbackConfig }] = await Promise.all([
       supabase
         .from("cards")
         .select("*")
@@ -62,6 +63,8 @@ export default function CardsPage() {
         .from("contact_detail_warnings")
         .select("id")
         .eq("user_id", user.id),
+      supabase.from("platform_config").select("value").eq("key", "support_email").single(),
+      supabase.from("platform_config").select("value").eq("key", "feedback_email").single(),
     ])
 
     setCards(cardData ?? [])
@@ -74,6 +77,7 @@ export default function CardsPage() {
       writeStoredContactWarningCount(user.id, mergedCount)
     }
     if (penaltyConfig?.value) setPenaltyAmount(penaltyConfig.value)
+    setSupportEmail(supportConfig?.value || feedbackConfig?.value || "ciarog2512@gmail.com")
     setLoading(false)
   }
 
@@ -81,6 +85,25 @@ export default function CardsPage() {
 
   function handleBlockedAction() {
     setPenaltyModalOpen(true)
+  }
+
+  function handlePayPenalty() {
+    const recipient = supportEmail || "ciarog2512@gmail.com"
+    const subject = encodeURIComponent("Manual penalty payment request")
+    const body = encodeURIComponent(
+      [
+        "Hello team,",
+        "",
+        `I reached the contact-details penalty block on Strefo.`,
+        `Penalty amount: Rs. ${penaltyAmount}`,
+        `Please review and mark my penalty as paid after verification.`,
+        "",
+        `User ID: (opened from my account)`,
+      ].join("\n")
+    )
+
+    setPenaltyModalOpen(false)
+    window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`
   }
 
   function handleCreateCard() {
@@ -303,10 +326,13 @@ export default function CardsPage() {
             <p>
               Please pay the penalty of ₹{penaltyAmount} to create new cards or edit existing ones.
             </p>
+            <p style={{ marginTop: 12, fontSize: 14 }}>
+              Online payments are not enabled yet. Clicking Pay will open an email draft to request manual verification.
+            </p>
           </>
         }
-        confirmLabel="Understood"
-        onConfirm={() => setPenaltyModalOpen(false)}
+        confirmLabel="Pay"
+        onConfirm={handlePayPenalty}
         onClose={() => setPenaltyModalOpen(false)}
       />
     </div>
