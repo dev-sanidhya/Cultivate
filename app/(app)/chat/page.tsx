@@ -93,9 +93,17 @@ export default function ChatPage() {
       ) : (
         <div>
           {chats.map(({ chat, otherProfile, otherCard, lastMessage, unread }) => (
-            <button
+            <div
               key={chat.id}
+              role="button"
+              tabIndex={0}
               onClick={() => router.push(`/chat/${chat.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault()
+                  router.push(`/chat/${chat.id}`)
+                }
+              }}
               style={{
                 width: "100%",
                 display: "flex",
@@ -103,11 +111,11 @@ export default function ChatPage() {
                 gap: 14,
                 padding: "14px 20px",
                 background: "none",
-                border: "none",
                 borderBottom: "1px solid var(--color-border-light)",
                 cursor: "pointer",
                 textAlign: "left",
                 transition: "background 0.1s",
+                outline: "none",
               }}
             >
               <Avatar
@@ -143,7 +151,7 @@ export default function ChatPage() {
                   </span>
                 </div>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
