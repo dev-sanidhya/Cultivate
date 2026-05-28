@@ -26,7 +26,7 @@ export async function fetchUnreadNotificationCount(supabase: SupabaseLike, userI
     .eq("user_id", userId)
     .eq("is_read", false)
 
-  if (error) throw error
+  if (error) return 0
   return count ?? 0
 }
 
@@ -36,7 +36,7 @@ export async function fetchUnreadChatCount(supabase: SupabaseLike, userId: strin
     .select("id, initiator_id, recipient_id")
     .or(`initiator_id.eq.${userId},recipient_id.eq.${userId}`)
 
-  if (chatsError) throw chatsError
+  if (chatsError) return 0
 
   const chatRows = (chats ?? []) as ChatRow[]
   if (chatRows.length === 0) return 0
@@ -55,8 +55,7 @@ export async function fetchUnreadChatCount(supabase: SupabaseLike, userId: strin
       .eq("user_id", userId),
   ])
 
-  if (messagesError) throw messagesError
-  if (readsError) throw readsError
+  if (messagesError || readsError) return 0
 
   const latestMessageByChat = new Map<string, MessageRow>()
   for (const message of (messages ?? []) as MessageRow[]) {
@@ -101,5 +100,5 @@ export async function markChatAsRead(
     },
   )
 
-  if (error) throw error
+  if (error) return
 }
