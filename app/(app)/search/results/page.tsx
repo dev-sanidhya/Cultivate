@@ -564,10 +564,6 @@ function SearchResultsContent() {
             <X size={18} />
           </button>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 40, marginBottom: 12, color: "white", fontSize: 14, fontWeight: 700 }}>
-            {fullscreenDisplayIndex + 1} / {filteredCards.length}
-          </div>
-
           <div
             onClick={(event) => event.stopPropagation()}
             style={{
@@ -611,43 +607,8 @@ function SearchResultsContent() {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 12 }}>
-            <button
-              onClick={() => stepFullscreen(-1)}
-              disabled={activeFullscreenIndex === 0}
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: "50%",
-                background: activeFullscreenIndex === 0 ? "rgba(255,255,255,0.16)" : "white",
-                color: activeFullscreenIndex === 0 ? "rgba(255,255,255,0.5)" : "var(--color-primary)",
-                border: "none",
-                cursor: activeFullscreenIndex === 0 ? "default" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ChevronLeft size={22} />
-            </button>
-            <button
-              onClick={() => stepFullscreen(1)}
-              disabled={activeFullscreenIndex === filteredCards.length - 1}
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: "50%",
-                background: activeFullscreenIndex === filteredCards.length - 1 ? "rgba(255,255,255,0.16)" : "white",
-                color: activeFullscreenIndex === filteredCards.length - 1 ? "rgba(255,255,255,0.5)" : "var(--color-primary)",
-                border: "none",
-                cursor: activeFullscreenIndex === filteredCards.length - 1 ? "default" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ChevronRight size={22} />
-            </button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 42, marginTop: 12, color: "white", fontSize: 14, fontWeight: 700 }}>
+            {fullscreenDisplayIndex + 1} / {filteredCards.length}
           </div>
         </div>
       )}
