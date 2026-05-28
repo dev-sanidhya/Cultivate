@@ -1,11 +1,28 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Bell } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 import type { Profile } from "@/types"
 
 export function AppHeader({ profile }: { profile: Profile }) {
+  const pathname = usePathname()
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)")
+    const update = () => setIsMobile(media.matches)
+    update()
+    media.addEventListener("change", update)
+    return () => media.removeEventListener("change", update)
+  }, [])
+
+  if (isMobile && pathname.startsWith("/chat/")) {
+    return null
+  }
+
   return (
     <header
       className="app-top-header"

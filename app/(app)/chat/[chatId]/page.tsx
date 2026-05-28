@@ -12,6 +12,7 @@ import type { Message, Profile, Card, ChatUnlock } from "@/types"
 export default function ChatConversationPage() {
   const { chatId } = useParams<{ chatId: string }>()
   const router = useRouter()
+  const [isMobile, setIsMobile] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [sending, setSending] = useState(false)
@@ -23,6 +24,14 @@ export default function ChatConversationPage() {
   const [loading, setLoading] = useState(true)
   const [lookingForCategory, setLookingForCategory] = useState("")
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)")
+    const update = () => setIsMobile(media.matches)
+    update()
+    media.addEventListener("change", update)
+    return () => media.removeEventListener("change", update)
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -141,7 +150,16 @@ export default function ChatConversationPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--color-bg)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: isMobile ? "100dvh" : "calc(100dvh - 64px)",
+        minHeight: isMobile ? "100dvh" : "calc(100dvh - 64px)",
+        background: "var(--color-bg)",
+        marginTop: isMobile ? -64 : 0,
+      }}
+    >
       {/* Header */}
       <div
         style={{
@@ -152,7 +170,7 @@ export default function ChatConversationPage() {
           alignItems: "center",
           gap: 12,
           position: "sticky",
-          top: 0,
+          top: isMobile ? 0 : 64,
           zIndex: 10,
         }}
       >
