@@ -12,7 +12,6 @@ import type { Chat, Profile, Card, Message } from "@/types"
 interface ChatListItem {
   chat: Chat
   otherProfile: Profile
-  myCard: Card | null
   theirCard: Card | null
   lastMessage: Message | null
   unread: number
@@ -43,7 +42,7 @@ export default function ChatPage() {
     const items: ChatListItem[] = []
     for (const chat of chatData ?? []) {
       const otherProfile = ((chat.initiator_id === user.id ? chat.recipient : chat.initiator) ?? null) as Profile | null
-      const { myCard, theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
+      const { theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
 
       const { data: lastMsg } = await supabase
         .from("messages")
@@ -67,7 +66,6 @@ export default function ChatPage() {
           contact_penalty_paid_at: null,
           created_at: "",
         },
-        myCard,
         theirCard,
         lastMessage: lastMsg ?? null,
         unread: 0,
@@ -105,7 +103,7 @@ export default function ChatPage() {
         </div>
       ) : (
         <div>
-          {chats.map(({ chat, otherProfile, myCard, theirCard, lastMessage }) => (
+          {chats.map(({ chat, otherProfile, theirCard, lastMessage }) => (
             <div
               key={chat.id}
               role="button"
@@ -133,14 +131,15 @@ export default function ChatPage() {
               }}
             >
               <Avatar
-                name={`${otherProfile?.first_name ?? ""} ${otherProfile?.last_name ?? ""}`}
+                name={theirCard?.card_id ?? ""}
                 photoUrl={otherProfile?.photo_url}
                 size={48}
+                initialsOverride={theirCard?.card_id?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 2).toUpperCase() || "--"}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text)" }}>
-                    {otherProfile?.first_name} {otherProfile?.last_name}
+                    #{theirCard?.card_id ?? "-"}
                   </span>
                   <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
                     {lastMessage ? timeAgo(lastMessage.created_at) : ""}
@@ -160,45 +159,12 @@ export default function ChatPage() {
                     {lastMessage?.content ?? "No messages yet"}
                   </span>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: "var(--color-primary)",
-                      fontWeight: 700,
-                      background: "var(--color-primary-bg)",
-                      padding: "4px 8px",
-                      borderRadius: 999,
-                    }}
-                  >
-                    My card #{myCard?.card_id ?? "-"}
-                  </span>
-                  <button
-                    disabled={!theirCard?.card_id}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (theirCard?.card_id) router.push(`/card/${theirCard.card_id}`)
-                    }}
-                    style={{
-                      fontSize: 11,
-                      color: "var(--color-accent)",
-                      fontWeight: 700,
-                      background: "var(--color-accent-bg)",
-                      padding: "4px 8px",
-                      borderRadius: 999,
-                      border: "none",
-                      cursor: "pointer",
-                      opacity: theirCard?.card_id ? 1 : 0.5,
-                    }}
-                  >
-                    Their card #{theirCard?.card_id ?? "-"}
-                  </button>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
                   <span
                     style={{
                       fontSize: 11,
                       color: "var(--color-text-secondary)",
                       fontWeight: 600,
-                      marginLeft: "auto",
                       background: "var(--color-border-light)",
                       padding: "4px 8px",
                       borderRadius: 999,

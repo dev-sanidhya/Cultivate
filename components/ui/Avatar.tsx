@@ -5,15 +5,14 @@ interface AvatarProps {
   photoUrl?: string | null
   size?: number
   className?: string
+  initialsOverride?: string
 }
 
-export function Avatar({ name, photoUrl, size = 40, className = "" }: AvatarProps) {
-  const initials = name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
+export function Avatar({ name, photoUrl, size = 40, className = "", initialsOverride }: AvatarProps) {
+  const initials = (initialsOverride ?? name)
+    .replace(/[^a-zA-Z0-9]/g, "")
     .slice(0, 2)
+    .toUpperCase() || "?"
 
   const colors = [
     "#7C3AED", "#6D28D9", "#5B21B6",
