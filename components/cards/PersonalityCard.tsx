@@ -102,9 +102,6 @@ export function PersonalityCard({
               </div>
             </>
           )}
-          <button className="btn-ghost" style={{ padding: 6 }} onClick={shareCard}>
-            <Share2 size={15} color="var(--color-text-secondary)" />
-          </button>
         </div>
       </div>
 
@@ -229,40 +226,82 @@ export function PersonalityCard({
       )}
 
       {mode === "search" && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, borderTop: "1px solid var(--color-border-light)", paddingTop: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, borderTop: "1px solid var(--color-border-light)", paddingTop: 14 }}>
           <button
             onClick={onLike}
+            aria-label={isLiked ? "Unlike" : "Like"}
+            title={isLiked ? "Unlike" : "Like"}
             style={{
-              display: "flex", alignItems: "center", gap: 4, padding: "8px 14px",
-              borderRadius: 20, border: `1px solid ${isLiked ? "var(--color-accent)" : "var(--color-border)"}`,
-              background: isLiked ? "var(--color-accent-bg)" : "white",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 42,
+              height: 42,
+              border: "none",
+              background: "transparent",
               color: isLiked ? "var(--color-accent)" : "var(--color-text-secondary)",
-              cursor: "pointer", fontSize: 13, fontWeight: 600,
+              cursor: "pointer",
+              padding: 0,
             }}
           >
-            <Heart size={14} fill={isLiked ? "currentColor" : "none"} /> {isLiked ? "Liked" : "Like"}
+            <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
           </button>
           <button
             onClick={onSave}
+            aria-label={isSaved ? "Unsave" : "Save"}
+            title={isSaved ? "Unsave" : "Save"}
             style={{
-              display: "flex", alignItems: "center", gap: 4, padding: "8px 14px",
-              borderRadius: 20, border: `1px solid ${isSaved ? "var(--color-primary)" : "var(--color-border)"}`,
-              background: isSaved ? "var(--color-primary-bg)" : "white",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 42,
+              height: 42,
+              border: "none",
+              background: "transparent",
               color: isSaved ? "var(--color-primary)" : "var(--color-text-secondary)",
-              cursor: "pointer", fontSize: 13, fontWeight: 600,
+              cursor: "pointer",
+              padding: 0,
             }}
           >
-            <Bookmark size={14} fill={isSaved ? "currentColor" : "none"} /> {isSaved ? "Saved" : "Save"}
+            <Bookmark size={18} fill={isSaved ? "currentColor" : "none"} />
           </button>
           <button
             onClick={() => onMarkRead?.(!isRead)}
+            aria-label={isRead ? "Mark unread" : "Mark read"}
+            title={isRead ? "Mark unread" : "Mark read"}
             style={{
-              padding: "8px 10px", borderRadius: 20, border: "1px solid var(--color-border)",
-              background: "white", color: "var(--color-text-secondary)", cursor: "pointer",
-              fontSize: 12, fontWeight: 500,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 42,
+              height: 42,
+              border: "none",
+              background: "transparent",
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+              padding: 0,
             }}
           >
-            {isRead ? "Unread" : "Read"}
+            <Eye size={18} />
+          </button>
+          <button
+            onClick={shareCard}
+            aria-label="Share"
+            title="Share"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 42,
+              height: 42,
+              border: "none",
+              background: "transparent",
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            <Share2 size={18} />
           </button>
           <button
             onClick={onChat}
