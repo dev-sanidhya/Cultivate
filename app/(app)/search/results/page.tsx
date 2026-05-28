@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, Suspense, type PointerEvent as ReactPointerEvent } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
@@ -338,10 +338,17 @@ function SearchResultsContent() {
 
   function openFullscreen(index: number) {
     setCurrentIndex(index)
+    if (fullscreenIndex === null) {
+      window.history.pushState({ searchResultsFullscreen: true }, "", window.location.href)
+    }
     setFullscreenIndex(index)
   }
 
   function closeFullscreen() {
+    if (fullscreenIndex !== null && window.history.state?.searchResultsFullscreen) {
+      window.history.back()
+      return
+    }
     setFullscreenIndex(null)
   }
 
@@ -388,7 +395,7 @@ function SearchResultsContent() {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        closeFullscreen()
+        setFullscreenIndex(null)
         return
       }
       if (event.key === "ArrowLeft") {
@@ -412,6 +419,15 @@ function SearchResultsContent() {
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [fullscreenIndex, currentIndex, filteredCards.length])
+
+  useEffect(() => {
+    const onPopState = () => {
+      setFullscreenIndex(null)
+    }
+
+    window.addEventListener("popstate", onPopState)
+    return () => window.removeEventListener("popstate", onPopState)
+  }, [])
 
   const activeCurrentIndex = filteredCards.length > 0 ? Math.min(currentIndex, filteredCards.length - 1) : 0
   const activeFullscreenIndex = fullscreenIndex === null
@@ -541,29 +557,6 @@ function SearchResultsContent() {
             padding: "12px",
           }}
         >
-          <button
-            aria-label="Close fullscreen"
-            onClick={closeFullscreen}
-            style={{
-              position: "absolute",
-              top: 14,
-              right: 14,
-              width: 40,
-              height: 40,
-              borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.16)",
-              background: "rgba(255,255,255,0.12)",
-              color: "white",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              zIndex: 2,
-            }}
-          >
-            <X size={18} />
-          </button>
-
           <div
             onClick={(event) => event.stopPropagation()}
             style={{
