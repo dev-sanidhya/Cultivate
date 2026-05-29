@@ -228,6 +228,8 @@ export function PersonalityCard({
             borderRadius: 10,
             padding: "10px 12px",
             marginBottom: 14,
+            maxHeight: 120,
+            overflowY: "auto",
             fontSize: 13,
             color: "var(--color-text-secondary)",
             lineHeight: 1.5,
