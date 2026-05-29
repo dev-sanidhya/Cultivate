@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader"
 import { generateCardId } from "@/lib/utils/cardId"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
+import { getErrorMessage } from "@/lib/utils/errors"
 import type { FieldOption, Gender } from "@/types"
 
 export default function CreateCardPage() {
@@ -134,7 +135,7 @@ export default function CreateCardPage() {
       toast.success("Card created!")
       router.push("/cards")
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to create card")
+      toast.error(getErrorMessage(e, "Failed to create card"))
     } finally {
       setLoading(false)
     }

@@ -6,9 +6,11 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { CardForm } from "@/components/cards/CardForm"
 import { PageHeader } from "@/components/ui/PageHeader"
+import { PopupModal } from "@/components/ui/PopupModal"
 import { Spinner } from "@/components/ui/Spinner"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
+import { getErrorMessage } from "@/lib/utils/errors"
 import type { Card, FieldOption, Gender } from "@/types"
 
 interface CardFormData {
@@ -33,6 +35,14 @@ export default function EditCardPage() {
   const [penaltyPaidAt, setPenaltyPaidAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
+  const [noteViolation, setNoteViolation] = useState<{
+    open: boolean
+    reason: string
+    warningCount: number
+    warningLimit: number
+    penaltyAmount: string
+    blocked: boolean
+  } | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -109,7 +119,21 @@ export default function EditCardPage() {
       toast.success("Card updated!")
       router.push("/cards")
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to update card")
+      const errorMessage = getErrorMessage(e, "Failed to update card")
+      if (errorMessage === "Contact details are not allowed in the Note field.") {
+        const result = await handleContactDetailsDetected(errorMessage)
+        setNoteViolation({
+          open: true,
+          reason: errorMessage,
+          warningCount: result.warningCount,
+          warningLimit: result.warningLimit,
+          penaltyAmount: result.penaltyAmount,
+          blocked: result.blocked,
+        })
+        return
+      }
+
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -146,6 +170,32 @@ export default function EditCardPage() {
   return (
     <div className="page-container" style={{ paddingTop: 20 }}>
       <PageHeader title="Edit Card" showBack />
+      <PopupModal
+        open={!!noteViolation?.open}
+        tone={noteViolation?.blocked ? "danger" : "warning"}
+        title={
+          noteViolation
+            ? `Warning ${noteViolation.warningCount}/${noteViolation.warningLimit}`
+            : "Warning"
+        }
+        message={
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <p style={{ margin: 0 }}>
+              Sharing your contact details in the Notes field is strictly prohibited, as it violates the platform&apos;s policy.
+            </p>
+            {noteViolation && (
+              <p style={{ margin: 0 }}>
+                {noteViolation.blocked
+                  ? `Penalty of ₹${noteViolation.penaltyAmount} is imposed on your account for violating platform's policy multiple times.`
+                  : `After ${Math.max(noteViolation.warningLimit - noteViolation.warningCount, 0)} more warning${Math.max(noteViolation.warningLimit - noteViolation.warningCount, 0) === 1 ? "" : "s"}, a penalty of ₹${noteViolation.penaltyAmount} will be imposed on your account.`}
+              </p>
+            )}
+          </div>
+        }
+        confirmLabel={noteViolation?.blocked ? "Understood" : "I'll fix it"}
+        onConfirm={() => setNoteViolation((prev) => (prev ? { ...prev, open: false } : prev))}
+        onClose={() => setNoteViolation((prev) => (prev ? { ...prev, open: false } : prev))}
+      />
       {card.chat_enabled && (
         <div style={{
           background: "var(--color-warning-bg)",
