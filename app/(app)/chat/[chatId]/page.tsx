@@ -6,6 +6,7 @@ import { ArrowLeft, Send, Lock } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
+import { PopupModal } from "@/components/ui/PopupModal"
 import { timeAgo } from "@/lib/utils/format"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
 import { markChatAsRead } from "@/lib/badges"
@@ -23,6 +24,7 @@ export default function ChatConversationPage() {
   const [myCard, setMyCard] = useState<Card | null>(null)
   const [theirCard, setTheirCard] = useState<Card | null>(null)
   const [canReply, setCanReply] = useState(false)
+  const [showUnlockPrompt, setShowUnlockPrompt] = useState(false)
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -101,7 +103,14 @@ export default function ChatConversationPage() {
       .limit(1)
       .single()
 
-    setCanReply(!!unlock)
+    if (!unlock) {
+      setCanReply(false)
+      setShowUnlockPrompt(true)
+      setLoading(false)
+      return
+    }
+
+    setCanReply(true)
 
     const { data: msgs } = await supabase
       .from("messages")
@@ -344,6 +353,20 @@ export default function ChatConversationPage() {
           </button>
         </div>
       )}
+
+      <PopupModal
+        open={showUnlockPrompt}
+        title="Unlock chat first"
+        message={
+          <>
+            You need an active unlock for the <strong>{theirCard?.looking_for ?? "this"}</strong> category before opening this conversation.
+          </>
+        }
+        confirmLabel="Go to cards"
+        onConfirm={() => router.push("/cards")}
+        onClose={() => router.push("/chat")}
+        tone="warning"
+      />
     </div>
   )
 }

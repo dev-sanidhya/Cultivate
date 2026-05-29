@@ -5,10 +5,11 @@ import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
+import { PopupModal } from "@/components/ui/PopupModal"
 import { timeAgo } from "@/lib/utils/format"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
 import { markChatAsRead } from "@/lib/badges"
-import type { Chat, Profile, Card, Message } from "@/types"
+import type { Chat, ChatUnlock, Profile, Card, Message } from "@/types"
 
 interface ChatListItem {
   chat: Chat
@@ -16,6 +17,7 @@ interface ChatListItem {
   theirCard: Card | null
   lastMessage: Message | null
   unread: number
+  canOpen: boolean
 }
 
 export default function ChatPage() {
@@ -24,6 +26,13 @@ export default function ChatPage() {
   const [chats, setChats] = useState<ChatListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState("")
+  const [unlockPrompt, setUnlockPrompt] = useState<{
+    open: boolean
+    lookingForCategory: string
+  }>({
+    open: false,
+    lookingForCategory: "",
+  })
 
   type ChatRow = Chat & ChatCardRelation & {
     initiator: Profile | null
@@ -33,7 +42,10 @@ export default function ChatPage() {
   const loadChats = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
     setUserId(user.id)
 
     const { data: chatData } = await supabase
@@ -57,7 +69,7 @@ export default function ChatPage() {
     }
 
     const chatIds = chatRows.map((chat) => chat.id)
-    const [{ data: messagesData }, { data: readsData }] = await Promise.all([
+    const [{ data: messagesData }, { data: readsData }, { data: unlocksData }] = await Promise.all([
       supabase
         .from("messages")
         .select("*")
@@ -67,11 +79,19 @@ export default function ChatPage() {
         .from("chat_reads")
         .select("chat_id, last_read_at")
         .eq("user_id", user.id),
+      supabase
+        .from("chat_unlocks")
+        .select("looking_for_category, expires_at")
+        .eq("user_id", user.id)
+        .gt("expires_at", new Date().toISOString()),
     ])
 
     const latestMessageByChat = new Map<string, Message>()
     const unreadCountByChat = new Map<string, number>()
     const lastReadByChat = new Map<string, string | null>()
+    const activeUnlockCategories = new Set(
+      ((unlocksData ?? []) as ChatUnlock[]).map((unlock) => unlock.looking_for_category),
+    )
 
     for (const read of (readsData ?? []) as { chat_id: string; last_read_at: string | null }[]) {
       lastReadByChat.set(read.chat_id, read.last_read_at)
@@ -113,6 +133,7 @@ export default function ChatPage() {
         theirCard,
         lastMessage: latestMessageByChat.get(chat.id) ?? null,
         unread: unreadCountByChat.get(chat.id) ?? 0,
+        canOpen: activeUnlockCategories.has(chat.looking_for_category),
       })
     }
 
@@ -121,7 +142,15 @@ export default function ChatPage() {
   }, [])
 
   const openChat = useCallback(
-    async (chatId: string, lastMessageAt?: string | null) => {
+    async (chatId: string, lastMessageAt?: string | null, canOpen = true, lookingForCategory = "") => {
+      if (!canOpen) {
+        setUnlockPrompt({
+          open: true,
+          lookingForCategory,
+        })
+        return
+      }
+
       if (userId) {
         const supabase = createClient()
         await markChatAsRead(supabase, chatId, userId, lastMessageAt ?? new Date().toISOString())
@@ -185,18 +214,18 @@ export default function ChatPage() {
         </div>
       ) : (
         <div>
-          {chats.map(({ chat, otherProfile, theirCard, lastMessage, unread }) => (
+          {chats.map(({ chat, otherProfile, theirCard, lastMessage, unread, canOpen }) => (
             <div
               key={chat.id}
               role="button"
               tabIndex={0}
               onClick={() => {
-                void openChat(chat.id, lastMessage?.created_at)
+                void openChat(chat.id, lastMessage?.created_at, canOpen, chat.looking_for_category)
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault()
-                  void openChat(chat.id, lastMessage?.created_at)
+                  void openChat(chat.id, lastMessage?.created_at, canOpen, chat.looking_for_category)
                 }
               }}
               style={{
@@ -208,10 +237,11 @@ export default function ChatPage() {
                 background: "none",
                 border: "none",
                 borderBottom: "1px solid var(--color-border-light)",
-                cursor: "pointer",
+                cursor: canOpen ? "pointer" : "not-allowed",
                 textAlign: "left",
                 transition: "background 0.1s",
                 outline: "none",
+                opacity: canOpen ? 1 : 0.88,
               }}
             >
               <Avatar
@@ -271,6 +301,23 @@ export default function ChatPage() {
           ))}
         </div>
       )}
+
+      <PopupModal
+        open={unlockPrompt.open}
+        title="Unlock chat first"
+        message={
+          <>
+            This conversation is locked until you unlock chat for the <strong>{unlockPrompt.lookingForCategory}</strong> category.
+          </>
+        }
+        confirmLabel="Go to cards"
+        onConfirm={() => {
+          setUnlockPrompt({ open: false, lookingForCategory: "" })
+          router.push("/cards")
+        }}
+        onClose={() => setUnlockPrompt({ open: false, lookingForCategory: "" })}
+        tone="warning"
+      />
     </div>
   )
 }
