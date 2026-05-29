@@ -120,15 +120,12 @@ export default function ChatPage() {
   }, [])
 
   const openChat = useCallback(
-    (chatId: string, lastMessageAt?: string | null) => {
+    async (chatId: string, lastMessageAt?: string | null) => {
       if (userId) {
         const supabase = createClient()
-        void markChatAsRead(supabase, chatId, userId, lastMessageAt ?? new Date().toISOString())
+        await markChatAsRead(supabase, chatId, userId, lastMessageAt ?? new Date().toISOString())
       }
 
-      setChats((prev) =>
-        prev.map((item) => (item.chat.id === chatId ? { ...item, unread: 0 } : item)),
-      )
       router.push(`/chat/${chatId}`)
     },
     [router, userId],
@@ -189,11 +186,13 @@ export default function ChatPage() {
               key={chat.id}
               role="button"
               tabIndex={0}
-              onClick={() => openChat(chat.id, lastMessage?.created_at)}
+              onClick={() => {
+                void openChat(chat.id, lastMessage?.created_at)
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault()
-                  openChat(chat.id, lastMessage?.created_at)
+                  void openChat(chat.id, lastMessage?.created_at)
                 }
               }}
               style={{
