@@ -26,12 +26,18 @@ export function AppHeader({ profile }: { profile: Profile }) {
     let active = true
     const supabase = createClient()
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let authSubscription: { unsubscribe: () => void } | null = null
 
     async function loadUnreadNotifications() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         if (active) setUnreadNotifications(0)
         return
+      }
+
+      if (channel) {
+        void supabase.removeChannel(channel)
+        channel = null
       }
 
       const count = await fetchUnreadNotificationCount(supabase, user.id)
@@ -60,9 +66,14 @@ export function AppHeader({ profile }: { profile: Profile }) {
     }
 
     void loadUnreadNotifications()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      void loadUnreadNotifications()
+    })
+    authSubscription = subscription
 
     return () => {
       active = false
+      authSubscription?.unsubscribe()
       if (channel) {
         void supabase.removeChannel(channel)
       }

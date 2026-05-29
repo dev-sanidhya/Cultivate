@@ -23,12 +23,18 @@ export function DesktopSidebarNav() {
     let active = true
     const supabase = createClient()
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let authSubscription: { unsubscribe: () => void } | null = null
 
     async function loadUnreadChats() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         if (active) setUnreadChats(0)
         return
+      }
+
+      if (channel) {
+        void supabase.removeChannel(channel)
+        channel = null
       }
 
       const count = await fetchUnreadChatCount(supabase, user.id)
@@ -69,9 +75,14 @@ export function DesktopSidebarNav() {
     }
 
     void loadUnreadChats()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      void loadUnreadChats()
+    })
+    authSubscription = subscription
 
     return () => {
       active = false
+      authSubscription?.unsubscribe()
       if (channel) {
         void supabase.removeChannel(channel)
       }
