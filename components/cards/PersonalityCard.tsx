@@ -212,16 +212,10 @@ export function PersonalityCard({
       )}
 
       {/* Qualities & Hobbies */}
-      {(card.qualities?.length > 0 || card.hobbies?.length > 0) && (
-        <div style={{ marginBottom: 12 }}>
-          {card.qualities?.length > 0 && (
-            <SingleLineTagSection title="Qualities" tags={card.qualities} />
-          )}
-          {card.hobbies?.length > 0 && (
-            <SingleLineTagSection title="Hobbies" tags={card.hobbies} />
-          )}
-        </div>
-      )}
+      <div style={{ marginBottom: 12 }}>
+        <SingleLineTagSection title="Qualities" tags={card.qualities ?? []} />
+        <SingleLineTagSection title="Hobbies" tags={card.hobbies ?? []} />
+      </div>
 
       {/* Note */}
       {card.note && (
