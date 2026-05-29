@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2, Pencil, CircleX } from "lucide-react"
+import { useState } from "react"
+import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2, Pencil, CircleX, ChevronDown, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
@@ -406,71 +406,41 @@ function SingleLineTagSection({
   tags: string[]
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [isOverflowing, setIsOverflowing] = useState(false)
-  const lineRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (expanded) return
-    const node = lineRef.current
-    if (!node) return
-
-    const checkOverflow = () => {
-      setIsOverflowing(node.scrollWidth > node.clientWidth + 1)
-    }
-
-    checkOverflow()
-    window.addEventListener("resize", checkOverflow)
-    return () => window.removeEventListener("resize", checkOverflow)
-  }, [expanded, tags])
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 6 }}>
-        {title}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+          {title}
+        </div>
+        <button
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-label={expanded ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
+          title={expanded ? `Collapse ${title}` : `Expand ${title}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 26,
+            height: 26,
+            padding: 0,
+            border: "none",
+            background: "transparent",
+            color: "var(--color-primary-light)",
+            cursor: "pointer",
+            flex: "0 0 auto",
+          }}
+        >
+          {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
       </div>
-      {expanded ? (
+      {expanded && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {tags.map((tag) => (
             <span key={tag} className="tag" style={{ fontSize: 12, flex: "0 0 auto" }}>
               {tag}
             </span>
           ))}
-          <button
-            onClick={() => setExpanded(false)}
-            className="tag"
-            style={{ fontSize: 12, color: "var(--color-primary)", background: "transparent", cursor: "pointer" }}
-          >
-            Show Less
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div
-            ref={lineRef}
-            style={{
-              display: "flex",
-              flexWrap: "nowrap",
-              overflow: "hidden",
-              gap: 6,
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            {tags.map((tag) => (
-              <span key={tag} className="tag" style={{ fontSize: 12, flex: "0 0 auto" }}>
-                {tag}
-              </span>
-            ))}
-          </div>
-          {isOverflowing && (
-            <button
-              onClick={() => setExpanded(true)}
-              className="tag"
-              style={{ fontSize: 12, color: "var(--color-primary)", background: "transparent", cursor: "pointer", flex: "0 0 auto" }}
-            >
-              View All
-            </button>
-          )}
         </div>
       )}
     </div>
