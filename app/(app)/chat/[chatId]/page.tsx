@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Send, Lock } from "lucide-react"
 import { toast } from "sonner"
@@ -55,7 +55,8 @@ export default function ChatConversationPage() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `chat_id=eq.${chatId}` },
         (payload: { new: Message }) => {
-          setMessages((prev) => [...prev, payload.new as Message])
+          const nextMessage = payload.new as Message
+          setMessages((prev) => (prev.some((message) => message.id === nextMessage.id) ? prev : [...prev, nextMessage]))
         }
       )
       .subscribe()
@@ -63,7 +64,7 @@ export default function ChatConversationPage() {
     return () => { supabase.removeChannel(channel) }
   }, [chatId])
 
-  async function loadChat() {
+  const loadChat = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     setUserId(user!.id)
@@ -110,14 +111,14 @@ export default function ChatConversationPage() {
 
     setMessages(msgs ?? [])
     setLoading(false)
-  }
+  }, [chatId, router])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       void loadChat()
     }, 0)
     return () => clearTimeout(timeoutId)
-  }, [chatId])
+  }, [loadChat])
 
   async function sendMessage() {
     if (!newMessage.trim()) return
@@ -136,18 +137,29 @@ export default function ChatConversationPage() {
 
     setSending(true)
     const supabase = createClient()
-    const { error } = await supabase.from("messages").insert({
-      chat_id: chatId,
-      sender_id: userId,
-      content: newMessage.trim(),
-    })
+    const messageText = newMessage.trim()
+    const { data: insertedMessage, error } = await supabase
+      .from("messages")
+      .insert({
+        chat_id: chatId,
+        sender_id: userId,
+        content: messageText,
+      })
+      .select("*")
+      .single()
 
-    if (!error) {
-      await supabase.from("chats").update({
-        last_message_at: new Date().toISOString(),
-        last_activity_at: new Date().toISOString(),
-      }).eq("id", chatId)
+    if (!error && insertedMessage) {
+      setMessages((prev) =>
+        prev.some((message) => message.id === insertedMessage.id) ? prev : [...prev, insertedMessage as Message]
+      )
       setNewMessage("")
+      void supabase
+        .from("chats")
+        .update({
+          last_message_at: insertedMessage.created_at,
+          last_activity_at: insertedMessage.created_at,
+        })
+        .eq("id", chatId)
     } else {
       toast.error("Failed to send message")
     }
