@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import Link from "next/link"
 import { Users, MessageSquarePlus } from "lucide-react"
+import { redirect } from "next/navigation"
 
 export default async function HomePage() {
   const supabase = await createClient()

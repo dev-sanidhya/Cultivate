@@ -23,6 +23,11 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState("")
 
+  type ChatRow = Chat & ChatCardRelation & {
+    initiator: Profile | null
+    recipient: Profile | null
+  }
+
   const loadChats = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -41,13 +46,15 @@ export default function ChatPage() {
       .or(`initiator_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order("last_message_at", { ascending: false, nullsFirst: false })
 
-    if (!chatData || chatData.length === 0) {
+    const chatRows = (chatData ?? []) as ChatRow[]
+
+    if (chatRows.length === 0) {
       setChats([])
       setLoading(false)
       return
     }
 
-    const chatIds = chatData.map((chat) => chat.id)
+    const chatIds = chatRows.map((chat) => chat.id)
     const [{ data: messagesData }, { data: readsData }] = await Promise.all([
       supabase
         .from("messages")
@@ -83,7 +90,7 @@ export default function ChatPage() {
     }
 
     const items: ChatListItem[] = []
-    for (const chat of chatData ?? []) {
+    for (const chat of chatRows) {
       const otherProfile = ((chat.initiator_id === user.id ? chat.recipient : chat.initiator) ?? null) as Profile | null
       const { theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
 
