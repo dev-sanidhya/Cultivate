@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { Home, CreditCard, Search, MessageCircle, Bookmark } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { fetchUnreadChatCount } from "@/lib/badges"
+import type { Session } from "@supabase/supabase-js"
 
 const NAV_ITEMS = [
   { href: "/home", icon: Home, label: "Home" },
@@ -18,76 +19,71 @@ const NAV_ITEMS = [
 export function DesktopSidebarNav() {
   const pathname = usePathname()
   const [unreadChats, setUnreadChats] = useState(0)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    let active = true
     const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let authSubscription: { unsubscribe: () => void } | null = null
-
-    async function loadUnreadChats() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        if (active) setUnreadChats(0)
-        return
+    let active = true
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
+      if (active) {
+        const nextUserId = session?.user.id ?? null
+        setUserId(nextUserId)
+        if (!nextUserId) setUnreadChats(0)
       }
-
-      if (channel) {
-        void supabase.removeChannel(channel)
-        channel = null
-      }
-
-      const count = await fetchUnreadChatCount(supabase, user.id)
-      if (!active) return
-      setUnreadChats(count)
-
-      channel = supabase
-        .channel(`desktop-chat-unread:${user.id}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "messages" },
-          async () => {
-            try {
-              const nextCount = await fetchUnreadChatCount(supabase, user.id)
-              if (active) setUnreadChats(nextCount)
-            } catch {
-              if (active) setUnreadChats(0)
-            }
-          },
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "chat_reads", filter: `user_id=eq.${user.id}` },
-          async () => {
-            try {
-              const nextCount = await fetchUnreadChatCount(supabase, user.id)
-              if (active) setUnreadChats(nextCount)
-            } catch {
-              if (active) setUnreadChats(0)
-            }
-          },
-        )
-        .subscribe()
-
-      if (!active && channel) {
-        void supabase.removeChannel(channel)
-      }
-    }
-
-    void loadUnreadChats()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      void loadUnreadChats()
     })
-    authSubscription = subscription
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser()
+      if (active) setUserId(data.user?.id ?? null)
+    })()
 
     return () => {
       active = false
-      authSubscription?.unsubscribe()
-      if (channel) {
-        void supabase.removeChannel(channel)
-      }
+      subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    if (!userId) return
+    const currentUserId = userId
+
+    const supabase = createClient()
+    let active = true
+
+    async function refreshUnreadChats() {
+      try {
+        const nextCount = await fetchUnreadChatCount(supabase, currentUserId)
+        if (active) setUnreadChats(nextCount)
+      } catch {
+        if (active) setUnreadChats(0)
+      }
+    }
+
+    void refreshUnreadChats()
+
+    const channel = supabase
+      .channel(`desktop-chat-unread:${currentUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
+        () => {
+          void refreshUnreadChats()
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "chat_reads", filter: `user_id=eq.${currentUserId}` },
+        () => {
+          void refreshUnreadChats()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      active = false
+      void supabase.removeChannel(channel)
+    }
+  }, [userId])
 
   return (
     <aside className="desktop-sidebar-nav">

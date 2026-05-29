@@ -8,11 +8,13 @@ import { Avatar } from "@/components/ui/Avatar"
 import { createClient } from "@/lib/supabase/client"
 import { fetchUnreadNotificationCount } from "@/lib/badges"
 import type { Profile } from "@/types"
+import type { Session } from "@supabase/supabase-js"
 
 export function AppHeader({ profile }: { profile: Profile }) {
   const pathname = usePathname()
   const [isMobile, setIsMobile] = useState(false)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)")
@@ -23,62 +25,61 @@ export function AppHeader({ profile }: { profile: Profile }) {
   }, [])
 
   useEffect(() => {
-    let active = true
     const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let authSubscription: { unsubscribe: () => void } | null = null
-
-    async function loadUnreadNotifications() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        if (active) setUnreadNotifications(0)
-        return
+    let active = true
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
+      if (active) {
+        const nextUserId = session?.user.id ?? null
+        setUserId(nextUserId)
+        if (!nextUserId) setUnreadNotifications(0)
       }
-
-      if (channel) {
-        void supabase.removeChannel(channel)
-        channel = null
-      }
-
-      const count = await fetchUnreadNotificationCount(supabase, user.id)
-      if (!active) return
-      setUnreadNotifications(count)
-
-      channel = supabase
-        .channel(`notifications:${user.id}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-          async () => {
-            try {
-              const nextCount = await fetchUnreadNotificationCount(supabase, user.id)
-              if (active) setUnreadNotifications(nextCount)
-            } catch {
-              if (active) setUnreadNotifications(0)
-            }
-          },
-        )
-        .subscribe()
-
-      if (!active && channel) {
-        void supabase.removeChannel(channel)
-      }
-    }
-
-    void loadUnreadNotifications()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      void loadUnreadNotifications()
     })
-    authSubscription = subscription
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser()
+      if (active) setUserId(data.user?.id ?? null)
+    })()
 
     return () => {
       active = false
-      authSubscription?.unsubscribe()
-      if (channel) {
-        void supabase.removeChannel(channel)
-      }
+      subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    if (!userId) return
+    const currentUserId = userId
+
+    const supabase = createClient()
+    let active = true
+
+    async function refreshUnreadNotifications() {
+      try {
+        const count = await fetchUnreadNotificationCount(supabase, currentUserId)
+        if (active) setUnreadNotifications(count)
+      } catch {
+        if (active) setUnreadNotifications(0)
+      }
+    }
+
+    void refreshUnreadNotifications()
+
+    const channel = supabase
+      .channel(`notifications:${currentUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${currentUserId}` },
+        () => {
+          void refreshUnreadNotifications()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      active = false
+      void supabase.removeChannel(channel)
+    }
+  }, [userId])
 
   if (isMobile && pathname.startsWith("/chat/")) {
     return null
