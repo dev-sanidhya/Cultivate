@@ -110,6 +110,13 @@ export default function ChatConversationPage() {
       .order("created_at", { ascending: true })
 
     setMessages(msgs ?? [])
+    const latestVisibleMessage = (msgs ?? [])[msgs?.length ? msgs.length - 1 : -1] as Message | undefined
+    void markChatAsRead(
+      supabase,
+      chatId,
+      user.id,
+      latestVisibleMessage?.created_at ?? new Date().toISOString(),
+    )
     setLoading(false)
   }, [chatId, router])
 
