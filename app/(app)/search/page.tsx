@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, RefreshCw, Pencil, Trash2, Search } from "lucide-react"
+import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Spinner } from "@/components/ui/Spinner"
@@ -106,14 +106,28 @@ function SearchHistoryCard({
   const filters: string[] = []
   if (search.search_type === "card_id") {
     return (
-      <div className="card" style={{ padding: "16px 20px" }}>
+      <div
+        className="card"
+        onClick={onSearch}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            onSearch()
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Re-search card ID ${search.card_id_query}`}
+        style={{ padding: "16px 20px", cursor: "pointer" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Search size={16} color="var(--color-primary)" />
           <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "var(--color-text)" }}>
             Card ID: {search.card_id_query}
           </span>
-          <button className="btn-ghost" onClick={onSearch}><RefreshCw size={16} /></button>
-          <button className="btn-ghost" onClick={onDelete}><Trash2 size={14} color="var(--color-error)" /></button>
+          <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+            <Trash2 size={14} color="var(--color-error)" />
+          </button>
         </div>
       </div>
     )
@@ -128,7 +142,20 @@ function SearchHistoryCard({
   if (search.hobbies?.length) filters.push(...search.hobbies)
 
   return (
-    <div className="card" style={{ padding: "16px 20px" }}>
+    <div
+      className="card"
+      onClick={onSearch}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onSearch()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Re-search this history item"
+      style={{ padding: "16px 20px", cursor: "pointer" }}
+    >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
@@ -149,9 +176,12 @@ function SearchHistoryCard({
           )}
         </div>
         <div style={{ display: "flex", gap: 4 }}>
-          <button className="btn-ghost" onClick={onSearch} title="Re-search"><RefreshCw size={15} /></button>
-          <button className="btn-ghost" onClick={onEdit} title="Edit"><Pencil size={15} /></button>
-          <button className="btn-ghost" onClick={onDelete} title="Delete"><Trash2 size={14} color="var(--color-error)" /></button>
+          <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit">
+            <Pencil size={15} />
+          </button>
+          <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete">
+            <Trash2 size={14} color="var(--color-error)" />
+          </button>
         </div>
       </div>
     </div>

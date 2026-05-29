@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2 } from "lucide-react"
+import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2, Pencil, CircleX } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
@@ -258,25 +258,45 @@ export function PersonalityCard({
           )}
           <button
             onClick={onEdit}
+            aria-label="Edit card"
+            title="Edit card"
             style={{
-              marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
-              fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)",
-              background: "transparent", padding: "6px 14px", borderRadius: 20,
-              border: "1px solid var(--color-border)", cursor: "pointer",
+              marginLeft: "auto",
+              width: 40,
+              height: 40,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--color-text-secondary)",
+              background: "var(--color-surface)",
+              padding: 0,
+              borderRadius: "50%",
+              border: "1px solid var(--color-border)",
+              cursor: "pointer",
             }}
           >
-            Edit
+            <Pencil size={16} />
           </button>
           {!card.is_closed && card.is_public && (
             <button
               onClick={onClose}
+              aria-label="Close card"
+              title="Close card"
               style={{
-                display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600,
-                color: "var(--color-error)", background: "var(--color-error-bg)",
-                padding: "6px 14px", borderRadius: 20, border: "none", cursor: "pointer",
+                width: 40,
+                height: 40,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--color-error)",
+                background: "var(--color-error-bg)",
+                padding: 0,
+                borderRadius: "50%",
+                border: "none",
+                cursor: "pointer",
               }}
             >
-              Close Card
+              <CircleX size={16} />
             </button>
           )}
         </div>

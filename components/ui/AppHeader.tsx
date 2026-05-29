@@ -106,7 +106,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
         style={{
           width: "100%",
           maxWidth: 480,
-          padding: "10px 20px",
+          padding: "10px 14px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -115,7 +115,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
         <span
           className="app-top-header-brand"
           style={{
-            fontSize: 22,
+            fontSize: 24,
             fontWeight: 800,
             background: "linear-gradient(135deg, #7C3AED, #EC4899)",
             WebkitBackgroundClip: "text",

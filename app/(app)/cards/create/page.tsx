@@ -167,7 +167,7 @@ export default function CreateCardPage() {
   const isPenaltyBlocked = warningCount >= CONTACT_WARNING_LIMIT && !penaltyPaidAt
 
   return (
-    <div className="page-container" style={{ paddingTop: 20 }}>
+    <div className="page-container" style={{ paddingTop: 5 }}>
       <PageHeader title="Create Card" subtitle="Share who you are" showBack />
       <CardForm
         gender={gender}
