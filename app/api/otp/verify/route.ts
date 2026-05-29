@@ -56,11 +56,22 @@ export async function POST(request: NextRequest) {
     const supabaseAdmin = await createAdminClient()
 
     // Try create first. If the user already exists, resolve them as an existing user.
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    })
+    let newUser
+    let createError = null
+    try {
+      const result = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      })
+      newUser = result.data
+      createError = result.error
+    } catch {
+      return NextResponse.json(
+        { error: "Authentication service is temporarily unavailable. Please try again." },
+        { status: 503 },
+      )
+    }
 
     if (!createError && newUser?.user) {
       return NextResponse.json({
@@ -99,8 +110,15 @@ export async function POST(request: NextRequest) {
       hasProfile: !!profile,
     })
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Verification failed. Try again."
+    if (message.toLowerCase().includes("supabase admin is not configured")) {
+      return NextResponse.json(
+        { error: "Authentication service is not configured in this environment." },
+        { status: 503 },
+      )
+    }
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Verification failed. Try again." },
+      { error: message },
       { status: 500 }
     )
   }

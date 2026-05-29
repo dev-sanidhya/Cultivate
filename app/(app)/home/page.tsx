@@ -5,10 +5,12 @@ import { Users, MessageSquarePlus } from "lucide-react"
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/")
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("first_name")
-    .eq("id", user!.id)
+    .eq("id", user.id)
     .single()
 
   return (
