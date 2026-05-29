@@ -15,7 +15,7 @@ export default async function HomePage() {
     .single()
 
   return (
-    <div className="page-container" style={{ paddingTop: 24 }}>
+    <div className="page-container" style={{ paddingTop: 10 }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--color-text)" }}>
           Hey, {profile?.first_name} 👋

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { LogOut, User } from "lucide-react"
-import { toast } from "sonner"
+import { LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
@@ -38,24 +37,28 @@ export default function ProfilePage() {
   if (loading) return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spinner size={32} color="primary" /></div>
 
   return (
-    <div className="page-container" style={{ paddingTop: 24 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", marginBottom: 24 }}>Profile</h1>
+    <div className="page-container" style={{ paddingTop: 10 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", marginBottom: 12 }}>Profile</h1>
 
       {profile && (
         <>
           {/* Profile card */}
-          <div className="card" style={{ padding: "24px", textAlign: "center", marginBottom: 20 }}>
-            <Avatar
-              name={`${profile.first_name} ${profile.last_name}`}
-              photoUrl={profile.photo_url}
-              size={80}
-            />
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", marginTop: 16, marginBottom: 4 }}>
-              {profile.first_name} {profile.last_name}
-            </h2>
-            <p style={{ fontSize: 14, color: "var(--color-text-secondary)", textTransform: "capitalize" }}>
-              {profile.gender}
-            </p>
+          <div className="card" style={{ padding: "24px", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <Avatar
+                name={`${profile.first_name} ${profile.last_name}`}
+                photoUrl={profile.photo_url}
+                size={80}
+              />
+              <div style={{ minWidth: 0, textAlign: "left" }}>
+                <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", marginBottom: 4, lineHeight: 1.1 }}>
+                  {profile.first_name} {profile.last_name}
+                </h2>
+                <p style={{ fontSize: 14, color: "var(--color-text-secondary)", textTransform: "capitalize" }}>
+                  {profile.gender}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Details */}

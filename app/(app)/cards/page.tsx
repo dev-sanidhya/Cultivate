@@ -204,7 +204,7 @@ export default function CardsPage() {
   }
 
   return (
-    <div className="page-container" style={{ paddingTop: 24 }}>
+    <div className="page-container" style={{ paddingTop: 10 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)" }}>My Cards</h1>

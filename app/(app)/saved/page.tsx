@@ -131,8 +131,7 @@ export default function SavedPage() {
   const displayCards = tab === "liked" ? likedCards : savedCards
 
   return (
-    <div className="page-container" style={{ paddingTop: 24 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", marginBottom: 20 }}>Liked & Saved</h1>
+    <div className="page-container" style={{ paddingTop: 18 }}>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, marginBottom: 20, background: "var(--color-primary-bg)", padding: 4, borderRadius: 12 }}>

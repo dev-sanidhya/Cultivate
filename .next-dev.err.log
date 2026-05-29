@@ -107,3 +107,8 @@ TypeError: fetch failed
     code: 'UND_ERR_CONNECT_TIMEOUT'
   }
 }
+[browser] TypeError: Failed to fetch
+[browser] TypeError: Failed to fetch
+    at new Promise (<anonymous>)
+[browser] TypeError: Failed to fetch
+[browser] TypeError: Failed to fetch
