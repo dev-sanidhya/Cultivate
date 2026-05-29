@@ -58,9 +58,12 @@ export function PersonalityCard({
     <div
       className="card animate-fadeIn"
       style={{
-        padding: "14px",
+        display: "flex",
+        flexDirection: "column",
+        aspectRatio: "7 / 12",
+        padding: "18px",
         borderRadius: fullscreen ? 28 : undefined,
-        overflow: fullscreen ? "hidden" : undefined,
+        overflow: "hidden",
         position: "relative",
         opacity: card.is_closed ? 0.7 : 1,
       }}
@@ -228,7 +231,8 @@ export function PersonalityCard({
             borderRadius: 10,
             padding: "10px 12px",
             marginBottom: 14,
-            maxHeight: 120,
+            flex: "1 1 auto",
+            minHeight: 0,
             overflowY: "auto",
             fontSize: 13,
             color: "var(--color-text-secondary)",
