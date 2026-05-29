@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
@@ -21,11 +21,13 @@ export default function ChatPage() {
   const router = useRouter()
   const [chats, setChats] = useState<ChatListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState("")
 
-  async function loadChats() {
+  const loadChats = useCallback(async () => {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setUserId(user.id)
 
     const { data: chatData } = await supabase
       .from("chats")
@@ -39,18 +41,51 @@ export default function ChatPage() {
       .or(`initiator_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order("last_message_at", { ascending: false, nullsFirst: false })
 
+    if (!chatData || chatData.length === 0) {
+      setChats([])
+      setLoading(false)
+      return
+    }
+
+    const chatIds = chatData.map((chat) => chat.id)
+    const [{ data: messagesData }, { data: readsData }] = await Promise.all([
+      supabase
+        .from("messages")
+        .select("*")
+        .in("chat_id", chatIds)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("chat_reads")
+        .select("chat_id, last_read_at")
+        .eq("user_id", user.id),
+    ])
+
+    const latestMessageByChat = new Map<string, Message>()
+    const unreadCountByChat = new Map<string, number>()
+    const lastReadByChat = new Map<string, string | null>()
+
+    for (const read of (readsData ?? []) as { chat_id: string; last_read_at: string | null }[]) {
+      lastReadByChat.set(read.chat_id, read.last_read_at)
+    }
+
+    for (const message of (messagesData ?? []) as Message[]) {
+      if (!latestMessageByChat.has(message.chat_id)) {
+        latestMessageByChat.set(message.chat_id, message)
+      }
+
+      const lastReadAt = lastReadByChat.get(message.chat_id)
+      if (
+        message.sender_id !== user.id &&
+        (!lastReadAt || new Date(message.created_at) > new Date(lastReadAt))
+      ) {
+        unreadCountByChat.set(message.chat_id, (unreadCountByChat.get(message.chat_id) ?? 0) + 1)
+      }
+    }
+
     const items: ChatListItem[] = []
     for (const chat of chatData ?? []) {
       const otherProfile = ((chat.initiator_id === user.id ? chat.recipient : chat.initiator) ?? null) as Profile | null
       const { theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
-
-      const { data: lastMsg } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("chat_id", chat.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
 
       items.push({
         chat,
@@ -67,21 +102,44 @@ export default function ChatPage() {
           created_at: "",
         },
         theirCard,
-        lastMessage: lastMsg ?? null,
-        unread: 0,
+        lastMessage: latestMessageByChat.get(chat.id) ?? null,
+        unread: unreadCountByChat.get(chat.id) ?? 0,
       })
     }
 
     setChats(items)
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       void loadChats()
     }, 0)
     return () => clearTimeout(timeoutId)
-  }, [])
+  }, [loadChats])
+
+  useEffect(() => {
+    if (!userId) return
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`chat-list:${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
+        void loadChats()
+      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "chat_reads", filter: `user_id=eq.${userId}` },
+        () => {
+          void loadChats()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [loadChats, userId])
 
   if (loading) {
     return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}><Spinner size={32} color="primary" /></div>
@@ -103,7 +161,7 @@ export default function ChatPage() {
         </div>
       ) : (
         <div>
-          {chats.map(({ chat, otherProfile, theirCard, lastMessage }) => (
+          {chats.map(({ chat, otherProfile, theirCard, lastMessage, unread }) => (
             <div
               key={chat.id}
               role="button"
@@ -158,14 +216,17 @@ export default function ChatPage() {
                   <span
                     style={{
                       fontSize: 13,
-                      color: "var(--color-text-secondary)",
+                      color: unread > 0 ? "var(--color-primary)" : "var(--color-text-secondary)",
+                      fontWeight: unread > 0 ? 700 : 400,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                       flex: 1,
                     }}
                   >
-                    {lastMessage?.content ?? "No messages yet"}
+                    {unread > 0
+                      ? `${unread} New message${unread === 1 ? "" : "s"}`
+                      : lastMessage?.content ?? "No messages yet"}
                   </span>
                   <span
                     style={{

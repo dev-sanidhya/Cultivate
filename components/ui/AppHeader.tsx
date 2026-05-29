@@ -115,14 +115,25 @@ export function AppHeader({ profile }: { profile: Profile }) {
         </span>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Link href="/notifications" style={{ display: "flex" }}>
-            <div style={{ position: "relative", display: "flex" }}>
-              <button
-                className="btn-ghost"
-                style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--color-primary-bg)" }}
-              >
-                <Bell size={18} color="var(--color-primary)" />
-              </button>
+          <Link
+            href="/notifications"
+            onClick={() => setUnreadNotifications(0)}
+            style={{ display: "flex" }}
+            aria-label="Notifications"
+          >
+            <div
+              style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "var(--color-primary-bg)",
+              }}
+            >
+              <Bell size={18} color="var(--color-primary)" />
               {unreadNotifications > 0 && (
                 <span
                   aria-hidden="true"
