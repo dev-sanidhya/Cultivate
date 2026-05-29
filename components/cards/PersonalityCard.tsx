@@ -20,6 +20,7 @@ interface PersonalityCardProps {
   onFullscreen?: () => void
   showBrandMark?: boolean
   isRead?: boolean
+  fullscreen?: boolean
 }
 
 export function PersonalityCard({
@@ -36,6 +37,7 @@ export function PersonalityCard({
   onFullscreen,
   showBrandMark,
   isRead,
+  fullscreen = false,
 }: PersonalityCardProps) {
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
   const isSaved = interactions.some((i) => i.card_id === card.id && i.type === "save")
@@ -56,7 +58,9 @@ export function PersonalityCard({
     <div
       className="card animate-fadeIn"
       style={{
-        padding: "20px",
+        padding: "14px",
+        borderRadius: fullscreen ? 28 : undefined,
+        overflow: fullscreen ? "hidden" : undefined,
         position: "relative",
         opacity: card.is_closed ? 0.7 : 1,
       }}
@@ -303,7 +307,7 @@ export function PersonalityCard({
       )}
 
       {mode === "search" && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, borderTop: "1px solid var(--color-border-light)", paddingTop: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, borderTop: "1px solid var(--color-border-light)", paddingTop: 0 }}>
           <button
             onClick={onLike}
             aria-label={isLiked ? "Unlike" : "Like"}

@@ -623,6 +623,7 @@ function SearchResultsContent() {
                 onMarkRead={(read) => handleMarkRead(fullscreenCard, read)}
                 onChat={() => handleChat(fullscreenCard)}
                 showBrandMark
+                fullscreen
               />
             </div>
           </div>
