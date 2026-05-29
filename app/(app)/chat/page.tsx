@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
@@ -19,6 +19,7 @@ interface ChatListItem {
 }
 
 export default function ChatPage() {
+  const pathname = usePathname()
   const router = useRouter()
   const [chats, setChats] = useState<ChatListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -132,11 +133,14 @@ export default function ChatPage() {
   )
 
   useEffect(() => {
+    if (pathname !== "/chat") return
+
     const timeoutId = setTimeout(() => {
       void loadChats()
     }, 0)
+
     return () => clearTimeout(timeoutId)
-  }, [loadChats])
+  }, [loadChats, pathname])
 
   useEffect(() => {
     if (!userId) return
