@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
 import { timeAgo } from "@/lib/utils/format"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
+import { markChatAsRead } from "@/lib/badges"
 import type { Chat, Profile, Card, Message } from "@/types"
 
 interface ChatListItem {
@@ -118,6 +119,21 @@ export default function ChatPage() {
     setLoading(false)
   }, [])
 
+  const openChat = useCallback(
+    (chatId: string, lastMessageAt?: string | null) => {
+      if (userId) {
+        const supabase = createClient()
+        void markChatAsRead(supabase, chatId, userId, lastMessageAt ?? new Date().toISOString())
+      }
+
+      setChats((prev) =>
+        prev.map((item) => (item.chat.id === chatId ? { ...item, unread: 0 } : item)),
+      )
+      router.push(`/chat/${chatId}`)
+    },
+    [router, userId],
+  )
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       void loadChats()
@@ -173,11 +189,11 @@ export default function ChatPage() {
               key={chat.id}
               role="button"
               tabIndex={0}
-              onClick={() => router.push(`/chat/${chat.id}`)}
+              onClick={() => openChat(chat.id, lastMessage?.created_at)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault()
-                  router.push(`/chat/${chat.id}`)
+                  openChat(chat.id, lastMessage?.created_at)
                 }
               }}
               style={{
