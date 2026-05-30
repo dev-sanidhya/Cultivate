@@ -32,7 +32,7 @@ export default function SavedPage() {
       .from("card_interactions")
       .select("*, card:card_id(*)")
       .eq("user_id", user!.id)
-      .in("type", ["like", "save"])
+      .in("type", ["like", "save", "read"])
 
     const liked: Card[] = []
     const saved: Card[] = []
@@ -43,7 +43,7 @@ export default function SavedPage() {
 
     setLikedCards(liked)
     setSavedCards(saved)
-    setInteractions(allInteractions?.map((i: CardInteraction & { card?: Card }) => ({ ...i, card: undefined })) as CardInteraction[] ?? [])
+    setInteractions((allInteractions ?? []) as CardInteraction[])
     setLoading(false)
   }
 
@@ -54,7 +54,7 @@ export default function SavedPage() {
     return () => clearTimeout(timeoutId)
   }, [])
 
-  async function handleInteraction(card: Card, type: "like" | "save") {
+  async function handleInteraction(card: Card, type: "like" | "save" | "read") {
     const supabase = createClient()
     const existing = interactions.find((i) => i.card_id === card.id && i.type === type)
     if (existing) {
@@ -62,6 +62,24 @@ export default function SavedPage() {
       setInteractions((prev) => prev.filter((i) => i.id !== existing.id))
       if (type === "like") setLikedCards((prev) => prev.filter((c) => c.id !== card.id))
       if (type === "save") setSavedCards((prev) => prev.filter((c) => c.id !== card.id))
+      return
+    }
+
+    const { data, error } = await supabase.from("card_interactions").insert({
+      user_id: userId,
+      card_id: card.id,
+      type,
+    }).select().single()
+
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
+    if (data) {
+      setInteractions((prev) => [...prev, data])
+      if (type === "like") setLikedCards((prev) => (prev.some((c) => c.id === card.id) ? prev : [...prev, card]))
+      if (type === "save") setSavedCards((prev) => (prev.some((c) => c.id === card.id) ? prev : [...prev, card]))
     }
   }
 
@@ -173,7 +191,9 @@ export default function SavedPage() {
               interactions={interactions}
               onLike={() => handleInteraction(card, "like")}
               onSave={() => handleInteraction(card, "save")}
+              onMarkRead={() => handleInteraction(card, "read")}
               onChat={() => handleChat(card)}
+              isRead={interactions.some((i) => i.card_id === card.id && i.type === "read")}
             />
           ))}
         </div>
