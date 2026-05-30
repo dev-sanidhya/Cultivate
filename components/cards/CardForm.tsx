@@ -197,6 +197,12 @@ export function CardForm({
   const getOptions = (field: string) =>
     fieldOptions[field]?.map((o) => o.value) ?? []
 
+  function getDisplayOptions(field: string, selectedValues: string[] | string) {
+    const baseOptions = getOptions(field)
+    const selectedList = Array.isArray(selectedValues) ? selectedValues : [selectedValues]
+    return Array.from(new Set([...baseOptions, ...selectedList.filter(Boolean), ...pendingCustomOptions.filter((opt) => opt.field === field).map((opt) => opt.value)]))
+  }
+
   const warningsLeft = Math.max(violationState.warningLimit - violationState.warningCount, 0)
   const warningWord = warningsLeft === 1 ? "warning" : "warnings"
 
@@ -259,7 +265,7 @@ export function CardForm({
       <div>
         <label className="label">Looking For *</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          {getOptions("looking_for").map((opt) => (
+          {getDisplayOptions("looking_for", lookingFor).map((opt) => (
             <button
               key={opt}
               className={`tag ${lookingFor === opt ? "selected" : ""}`}
@@ -295,7 +301,7 @@ export function CardForm({
       <div>
         <label className="label">Personality Type</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          {getOptions("personality_types").map((opt) => (
+          {getDisplayOptions("personality_types", personalityTypes).map((opt) => (
             <button
               key={opt}
               className={`tag ${personalityTypes.includes(opt) ? "selected" : ""}`}
@@ -409,7 +415,7 @@ export function CardForm({
       <div>
         <label className="label">My Qualities</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          {getOptions("qualities").map((opt) => (
+          {getDisplayOptions("qualities", qualities).map((opt) => (
             <button
               key={opt}
               className={`tag ${qualities.includes(opt) ? "selected" : ""}`}
@@ -440,7 +446,7 @@ export function CardForm({
       <div>
         <label className="label">My Hobbies</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          {getOptions("hobbies").map((opt) => (
+          {getDisplayOptions("hobbies", hobbies).map((opt) => (
             <button
               key={opt}
               className={`tag ${hobbies.includes(opt) ? "selected" : ""}`}
