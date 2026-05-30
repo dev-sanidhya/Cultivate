@@ -103,7 +103,6 @@ function SearchHistoryCard({
   onEdit,
   onDelete,
 }: { search: SearchType; onSearch: () => void; onEdit: () => void; onDelete: () => void }) {
-  const filters: string[] = []
   if (search.search_type === "card_id") {
     return (
       <div
@@ -133,13 +132,10 @@ function SearchHistoryCard({
     )
   }
 
-  if (search.age) filters.push(`Age: ${search.age}`)
-  if (search.gender) filters.push(search.gender)
-  if (search.looking_for) filters.push(`Looking for: ${search.looking_for}`)
-  if (search.personality_types?.length) filters.push(...search.personality_types)
-  if (search.tagged_address) filters.push(formatTaggedAddress(search.tagged_address))
-  if (search.qualities?.length) filters.push(...search.qualities)
-  if (search.hobbies?.length) filters.push(...search.hobbies)
+  const ageLabel = typeof search.age === "number" ? `${search.age}y` : null
+  const genderLabel = search.gender ? search.gender.charAt(0).toUpperCase() + search.gender.slice(1) : null
+  const lookingForLabel = search.looking_for ? `Looking for: ${search.looking_for}` : null
+  const addressLabel = search.tagged_address ? formatTaggedAddress(search.tagged_address) : null
 
   return (
     <div
@@ -156,33 +152,115 @@ function SearchHistoryCard({
       aria-label="Re-search this history item"
       style={{ padding: "16px 20px", cursor: "pointer" }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-            {filters.slice(0, 4).map((f) => (
-              <span key={f} className="tag" style={{ fontSize: 12 }}>{f}</span>
-            ))}
-            {filters.length > 4 && (
-              <span className="tag" style={{ fontSize: 12 }}>+{filters.length - 4}</span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span
+              style={{
+                background: "var(--color-primary-bg)",
+                color: "var(--color-primary)",
+                padding: "4px 10px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: 0.4,
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              Filter Search
+            </span>
+            {search.new_cards_count > 0 && (
+              <span style={{
+                fontSize: 12, fontWeight: 600, color: "var(--color-success)",
+                background: "var(--color-success-bg)", padding: "3px 8px", borderRadius: 20,
+              }}>
+                {search.new_cards_count} New Cards
+              </span>
             )}
           </div>
-          {search.new_cards_count > 0 && (
-            <span style={{
-              fontSize: 12, fontWeight: 600, color: "var(--color-success)",
-              background: "var(--color-success-bg)", padding: "3px 8px", borderRadius: 20,
-            }}>
-              {search.new_cards_count} New Cards
+          <div style={{ display: "flex", gap: 4 }}>
+            <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit">
+              <Pencil size={15} />
+            </button>
+            <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete">
+              <Trash2 size={14} color="var(--color-error)" />
+            </button>
+          </div>
+        </div>
+
+        {lookingForLabel && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+              color: "white",
+              padding: "6px 14px",
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 600,
+              width: "fit-content",
+            }}
+          >
+            {lookingForLabel}
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {ageLabel && (
+            <span className="tag selected" style={{ background: "#EDE9FE", color: "#6D28D9", border: "none" }}>
+              {ageLabel}
             </span>
           )}
+          {genderLabel && (
+            <span className="tag selected" style={{ background: "#EDE9FE", color: "#6D28D9", border: "none", textTransform: "capitalize" }}>
+              {genderLabel}
+            </span>
+          )}
+          {search.personality_types?.map((p) => (
+            <span key={p} className="tag">
+              {p}
+            </span>
+          ))}
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit">
-            <Pencil size={15} />
-          </button>
-          <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Delete">
-            <Trash2 size={14} color="var(--color-error)" />
-          </button>
-        </div>
+
+        {addressLabel && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Location:</span>
+            <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{addressLabel}</span>
+          </div>
+        )}
+
+        {!!search.qualities?.length && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>Qualities</div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {search.qualities.map((q) => (
+                <span key={q} className="tag" style={{ fontSize: 12, flex: "0 0 auto" }}>
+                  {q}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!!search.hobbies?.length && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>Hobbies</div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {search.hobbies.map((h) => (
+                <span key={h} className="tag" style={{ fontSize: 12, flex: "0 0 auto" }}>
+                  {h}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
