@@ -33,7 +33,7 @@ export default async function PublicCardPage({ params }: { params: Promise<{ car
         padding: "70px 16px 24px",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 480, marginTop: 4 }}>
+      <div style={{ width: "100%", maxWidth: 390, marginTop: 4 }}>
         {user ? (
           <PublicCardViewer card={card} />
         ) : (
