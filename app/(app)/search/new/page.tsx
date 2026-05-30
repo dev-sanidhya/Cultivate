@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/ui/PageHeader"
+import { TaggedAddressFieldGroup } from "@/components/cards/TaggedAddressFieldGroup"
 import { normalizeCardId } from "@/lib/utils/cardId"
 import type { FieldOption, TaggedAddress, TaggedAddressType } from "@/types"
 import { Search } from "lucide-react"
@@ -352,14 +353,13 @@ function NewSearchContent() {
               ))}
             </div>
             {addressType && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {getAddressFields(addressType).map(({ key, label, placeholder }) => (
-                  <div key={key}>
-                    <label style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 4, display: "block" }}>{label}</label>
-                    <input className="input" placeholder={placeholder} value={addressFields[key] ?? ""} onChange={(e) => setAddressFields((p) => ({ ...p, [key]: e.target.value }))} />
-                  </div>
-                ))}
-              </div>
+              <TaggedAddressFieldGroup
+                key={addressType}
+                addressType={addressType}
+                fields={getAddressFields(addressType)}
+                values={addressFields}
+                onChange={(key, value) => setAddressFields((p) => ({ ...p, [key]: value }))}
+              />
             )}
           </div>
 

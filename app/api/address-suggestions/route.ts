@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient, createClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -11,15 +11,45 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ suggestions: [] })
   }
 
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("tagged_address_suggestions")
-    .select("value")
-    .eq("address_type", type)
-    .eq("field_name", field)
-    .ilike("value", `${q}%`)
-    .order("count", { ascending: false })
-    .limit(5)
+  const normalizedQuery = q.trim().toLowerCase()
+  if (!normalizedQuery) {
+    return NextResponse.json({ suggestions: [] })
+  }
 
-  return NextResponse.json({ suggestions: data?.map((d: { value: string }) => d.value) ?? [] })
+  let supabase
+  try {
+    supabase = await createAdminClient()
+  } catch {
+    supabase = await createClient()
+  }
+
+  const { data, error } = await supabase
+    .from("cards")
+    .select("tagged_address")
+
+  if (error) {
+    return NextResponse.json({ suggestions: [] })
+  }
+
+  const counts = new Map<string, number>()
+
+  for (const row of data ?? []) {
+    const taggedAddress = row.tagged_address as Record<string, unknown> | null
+    if (!taggedAddress || taggedAddress.type !== type) continue
+
+    const rawValue = taggedAddress[field]
+    if (typeof rawValue !== "string") continue
+
+    const value = rawValue.trim()
+    if (!value || !value.toLowerCase().startsWith(normalizedQuery)) continue
+
+    counts.set(value, (counts.get(value) ?? 0) + 1)
+  }
+
+  const suggestions = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5)
+    .map(([value]) => value)
+
+  return NextResponse.json({ suggestions })
 }

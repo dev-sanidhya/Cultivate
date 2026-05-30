@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, X, ChevronDown } from "lucide-react"
+import { useState } from "react"
+import { X } from "lucide-react"
 import { toast } from "sonner"
 import { moderateNote } from "@/lib/utils/moderation"
 import { PopupModal } from "@/components/ui/PopupModal"
+import { TaggedAddressFieldGroup } from "@/components/cards/TaggedAddressFieldGroup"
 import type { TaggedAddress, TaggedAddressType, Gender, FieldOption } from "@/types"
 
 interface CardFormData {
@@ -51,7 +52,6 @@ export function CardForm({
 }: CardFormProps) {
   const [age, setAge] = useState(initialData?.age ?? "")
   const [personalityTypes, setPersonalityTypes] = useState<string[]>(initialData?.personality_types ?? [])
-  const [taggedAddress, setTaggedAddress] = useState<TaggedAddress | null>(initialData?.tagged_address ?? null)
   const [lookingFor, setLookingFor] = useState(initialData?.looking_for ?? "")
   const [qualities, setQualities] = useState<string[]>(initialData?.qualities ?? [])
   const [hobbies, setHobbies] = useState<string[]>(initialData?.hobbies ?? [])
@@ -78,21 +78,10 @@ export function CardForm({
     (initialData?.tagged_address?.type as TaggedAddressType) ?? null
   )
   const [addressFields, setAddressFields] = useState<Record<string, string>>({})
-  const [addressSuggestions, setAddressSuggestions] = useState<Record<string, string[]>>({})
 
   // Custom option input
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({})
   const [pendingCustomOptions, setPendingCustomOptions] = useState<{ field: string; value: string }[]>([])
-
-  // Suggestions from existing data
-  async function fetchAddressSuggestions(field: string, value: string) {
-    if (value.length < 1) return
-    const res = await fetch(`/api/address-suggestions?type=${addressType}&field=${field}&q=${encodeURIComponent(value)}`)
-    if (res.ok) {
-      const data = await res.json()
-      setAddressSuggestions((prev) => ({ ...prev, [field]: data.suggestions }))
-    }
-  }
 
   function toggleMultiSelect(field: MultiSelectField, value: string) {
     const setter = field === "personality_types" ? setPersonalityTypes : field === "qualities" ? setQualities : setHobbies
@@ -200,7 +189,10 @@ export function CardForm({
   function getDisplayOptions(field: string, selectedValues: string[] | string) {
     const baseOptions = getOptions(field)
     const selectedList = Array.isArray(selectedValues) ? selectedValues : [selectedValues]
-    return Array.from(new Set([...baseOptions, ...selectedList.filter(Boolean), ...pendingCustomOptions.filter((opt) => opt.field === field).map((opt) => opt.value)]))
+    const customValues = pendingCustomOptions
+      .filter((opt) => opt.field === field)
+      .map((opt) => opt.value)
+    return Array.from(new Set([...baseOptions, ...selectedList.filter(Boolean), ...customValues]))
   }
 
   const warningsLeft = Math.max(violationState.warningLimit - violationState.warningCount, 0)
@@ -290,18 +282,13 @@ export function CardForm({
             Add
           </button>
         </div>
-        {lookingFor && (
-          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-            <span className="tag selected">{lookingFor}</span>
-          </div>
-        )}
       </div>
 
       {/* Personality Type */}
       <div>
         <label className="label">Personality Type</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          {getDisplayOptions("personality_types", personalityTypes).map((opt) => (
+          {getOptions("personality_types").map((opt) => (
             <button
               key={opt}
               className={`tag ${personalityTypes.includes(opt) ? "selected" : ""}`}
@@ -350,7 +337,9 @@ export function CardForm({
         </div>
 
         {addressType === "college" && (
-          <AddressFieldGroup
+          <TaggedAddressFieldGroup
+            key={addressType}
+            addressType={addressType}
             fields={[
               { key: "college_name", label: "College Name", placeholder: "e.g. DTU" },
               { key: "graduation_year", label: "Graduation Year", placeholder: "e.g. 2028" },
@@ -360,13 +349,13 @@ export function CardForm({
             values={addressFields}
             onChange={(k, v) => {
               setAddressFields((p) => ({ ...p, [k]: v }))
-              fetchAddressSuggestions(k, v)
             }}
-            suggestions={addressSuggestions}
           />
         )}
         {addressType === "school" && (
-          <AddressFieldGroup
+          <TaggedAddressFieldGroup
+            key={addressType}
+            addressType={addressType}
             fields={[
               { key: "school_name", label: "School Name", placeholder: "School name" },
               { key: "pin_code", label: "Pin Code", placeholder: "School pin code" },
@@ -375,13 +364,13 @@ export function CardForm({
             values={addressFields}
             onChange={(k, v) => {
               setAddressFields((p) => ({ ...p, [k]: v }))
-              fetchAddressSuggestions(k, v)
             }}
-            suggestions={addressSuggestions}
           />
         )}
         {addressType === "workplace" && (
-          <AddressFieldGroup
+          <TaggedAddressFieldGroup
+            key={addressType}
+            addressType={addressType}
             fields={[
               { key: "company_name", label: "Company Name", placeholder: "Company name" },
               { key: "pin_code", label: "Office Pin Code", placeholder: "Pin code" },
@@ -390,13 +379,13 @@ export function CardForm({
             values={addressFields}
             onChange={(k, v) => {
               setAddressFields((p) => ({ ...p, [k]: v }))
-              fetchAddressSuggestions(k, v)
             }}
-            suggestions={addressSuggestions}
           />
         )}
         {addressType === "general" && (
-          <AddressFieldGroup
+          <TaggedAddressFieldGroup
+            key={addressType}
+            addressType={addressType}
             fields={[
               { key: "pin_code", label: "Pin Code", placeholder: "Area pin code" },
               { key: "building_name", label: "Building / Premises", placeholder: "Name of place" },
@@ -404,9 +393,7 @@ export function CardForm({
             values={addressFields}
             onChange={(k, v) => {
               setAddressFields((p) => ({ ...p, [k]: v }))
-              fetchAddressSuggestions(k, v)
             }}
-            suggestions={addressSuggestions}
           />
         )}
       </div>
@@ -512,76 +499,5 @@ export function CardForm({
       </div>
       </div>
     </>
-  )
-}
-
-function AddressFieldGroup({
-  fields,
-  values,
-  onChange,
-  suggestions,
-}: {
-  fields: { key: string; label: string; placeholder: string }[]
-  values: Record<string, string>
-  onChange: (key: string, value: string) => void
-  suggestions: Record<string, string[]>
-}) {
-  const [activeField, setActiveField] = useState<string | null>(null)
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {fields.map(({ key, label, placeholder }) => (
-        <div key={key} style={{ position: "relative" }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4, display: "block" }}>
-            {label}
-          </label>
-          <input
-            className="input"
-            placeholder={placeholder}
-            value={values[key] ?? ""}
-            onChange={(e) => onChange(key, e.target.value)}
-            onFocus={() => setActiveField(key)}
-            onBlur={() => setTimeout(() => setActiveField(null), 150)}
-          />
-          {activeField === key && suggestions[key]?.length > 0 && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                background: "white",
-                border: "1px solid var(--color-border)",
-                borderRadius: 10,
-                boxShadow: "var(--shadow-md)",
-                zIndex: 10,
-                maxHeight: 160,
-                overflowY: "auto",
-              }}
-            >
-              {suggestions[key].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => { onChange(key, s); setActiveField(null) }}
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    textAlign: "left",
-                    background: "none",
-                    border: "none",
-                    fontSize: 14,
-                    color: "var(--color-text)",
-                    cursor: "pointer",
-                    borderBottom: "1px solid var(--color-border-light)",
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
   )
 }
