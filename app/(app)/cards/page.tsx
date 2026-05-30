@@ -12,6 +12,7 @@ import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
+import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
 import type { Card, Profile } from "@/types"
 
 type ChatWithProfiles = {
@@ -64,7 +65,28 @@ export default function CardsPage() {
         .eq("user_id", user.id),
     ])
 
-    setCards(cardData ?? [])
+    let metricsByCardId = new Map<string, { view_count: number; like_count: number; save_count: number }>()
+
+    if ((cardData ?? []).length > 0) {
+      const { data: metrics, error: metricsError } = await fetchOwnCardMetrics(supabase)
+      if (!metricsError && metrics) {
+        const typedMetrics = metrics as OwnCardMetricRow[]
+        metricsByCardId = new Map(typedMetrics.map((metric: OwnCardMetricRow) => [metric.card_id, metric]))
+      }
+    }
+
+    const typedCards = (cardData ?? []) as Card[]
+
+    setCards(typedCards.map((card: Card) => {
+      const metrics = metricsByCardId.get(card.id)
+      if (!metrics) return card
+      return {
+        ...card,
+        view_count: metrics.view_count ?? card.view_count,
+        like_count: metrics.like_count ?? card.like_count,
+        save_count: metrics.save_count ?? card.save_count,
+      }
+    }))
     if (profile) {
       const storedCount = readStoredContactWarningCount(user.id)
       const eventCount = Array.isArray(warningEvents) ? warningEvents.length : 0

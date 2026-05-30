@@ -90,6 +90,50 @@ CREATE TABLE IF NOT EXISTS card_interactions (
   UNIQUE(user_id, card_id, type)
 );
 
+CREATE OR REPLACE FUNCTION adjust_card_metric(
+  p_card_id UUID,
+  p_metric TEXT,
+  p_delta INTEGER DEFAULT 1
+) RETURNS VOID AS $$
+BEGIN
+  IF p_metric NOT IN ('view_count', 'save_count', 'like_count') THEN
+    RAISE EXCEPTION 'Unsupported card metric: %', p_metric;
+  END IF;
+
+  EXECUTE format(
+    'UPDATE cards SET %I = GREATEST(COALESCE(%I, 0) + $1, 0), updated_at = NOW() WHERE id = $2',
+    p_metric,
+    p_metric
+  )
+  USING p_delta, p_card_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION adjust_card_metric(UUID, TEXT, INTEGER) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION get_own_card_metrics()
+RETURNS TABLE (
+  card_id UUID,
+  view_count INTEGER,
+  like_count INTEGER,
+  save_count INTEGER
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    c.id AS card_id,
+    c.view_count,
+    COALESCE(SUM(CASE WHEN ci.type = 'like' THEN 1 ELSE 0 END), 0)::INTEGER AS like_count,
+    COALESCE(SUM(CASE WHEN ci.type = 'save' THEN 1 ELSE 0 END), 0)::INTEGER AS save_count
+  FROM cards c
+  LEFT JOIN card_interactions ci ON ci.card_id = c.id
+  WHERE c.user_id = auth.uid()
+  GROUP BY c.id, c.view_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION get_own_card_metrics() TO authenticated;
+
 -- Chats
 CREATE TABLE IF NOT EXISTS chats (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

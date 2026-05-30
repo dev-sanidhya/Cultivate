@@ -10,6 +10,7 @@ import { ChatCardPickerModal } from "@/components/chat/ChatCardPickerModal"
 import { Spinner } from "@/components/ui/Spinner"
 import type { Card, CardInteraction, Search } from "@/types"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
+import { adjustCardMetric } from "@/lib/cardMetrics"
 
 const FILTERS = ["All", "Read", "Unread", "Saved", "Liked"] as const
 type Filter = (typeof FILTERS)[number]
@@ -49,9 +50,11 @@ function SearchResultsContent() {
   const [chatTargetCard, setChatTargetCard] = useState<Card | null>(null)
   const [shareCards, setShareCards] = useState<Card[]>([])
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null)
+  const viewedCardIdsRef = useRef<Set<string>>(new Set())
 
   async function loadResults() {
     try {
+      viewedCardIdsRef.current = new Set()
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Please sign in again")
@@ -224,14 +227,30 @@ function SearchResultsContent() {
     const supabase = createClient()
     const existing = interactions.find((i) => i.card_id === card.id && i.type === type)
     if (existing) {
-      await supabase.from("card_interactions").delete().eq("id", existing.id)
+      const { error } = await supabase.from("card_interactions").delete().eq("id", existing.id)
+      if (error) {
+        toast.error(error.message)
+        return
+      }
+      const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", -1)
+      if (metricError) {
+        toast.error(metricError.message)
+      }
       setInteractions((prev) => prev.filter((i) => i.id !== existing.id))
     } else {
-      const { data } = await supabase.from("card_interactions").insert({
+      const { data, error } = await supabase.from("card_interactions").insert({
         user_id: userId,
         card_id: card.id,
         type,
       }).select().single()
+      if (error) {
+        toast.error(error.message)
+        return
+      }
+      const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", 1)
+      if (metricError) {
+        toast.error(metricError.message)
+      }
       if (data) setInteractions((prev) => [...prev, data])
     }
   }
@@ -412,8 +431,10 @@ function SearchResultsContent() {
   useEffect(() => {
     const card = filteredCards[currentIndex]
     if (!card || !userId) return
+    if (viewedCardIdsRef.current.has(card.id)) return
+    viewedCardIdsRef.current.add(card.id)
     const supabase = createClient()
-    supabase.from("cards").update({ view_count: card.view_count + 1 }).eq("id", card.id).then(() => {})
+    void adjustCardMetric(supabase, card.id, "view_count", 1)
   }, [currentIndex, filteredCards, userId])
 
   useEffect(() => {

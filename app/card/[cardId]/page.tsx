@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
 import { PublicCardViewer } from "@/components/cards/PublicCardViewer"
+import { CardViewTracker } from "@/components/cards/CardViewTracker"
 import Link from "next/link"
 
 export default async function PublicCardPage({ params }: { params: Promise<{ cardId: string }> }) {
@@ -19,9 +20,6 @@ export default async function PublicCardPage({ params }: { params: Promise<{ car
 
   if (!card) notFound()
 
-  // Increment view count
-  await supabase.from("cards").update({ view_count: card.view_count + 1 }).eq("id", card.id)
-
   return (
     <div
       style={{
@@ -33,6 +31,7 @@ export default async function PublicCardPage({ params }: { params: Promise<{ car
         padding: "70px 16px 24px",
       }}
     >
+      <CardViewTracker cardId={card.id} />
       <div style={{ width: "100%", maxWidth: 390, marginTop: 4 }}>
         {user ? (
           <PublicCardViewer card={card} />

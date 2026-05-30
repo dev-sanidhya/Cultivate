@@ -9,6 +9,7 @@ import type { Card, CardInteraction } from "@/types"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
+import { adjustCardMetric } from "@/lib/cardMetrics"
 
 type Tab = "liked" | "saved"
 
@@ -58,7 +59,17 @@ export default function SavedPage() {
     const supabase = createClient()
     const existing = interactions.find((i) => i.card_id === card.id && i.type === type)
     if (existing) {
-      await supabase.from("card_interactions").delete().eq("id", existing.id)
+      const { error } = await supabase.from("card_interactions").delete().eq("id", existing.id)
+      if (error) {
+        toast.error(error.message)
+        return
+      }
+      if (type !== "read") {
+        const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", -1)
+        if (metricError) {
+          toast.error(metricError.message)
+        }
+      }
       setInteractions((prev) => prev.filter((i) => i.id !== existing.id))
       if (type === "like") setLikedCards((prev) => prev.filter((c) => c.id !== card.id))
       if (type === "save") setSavedCards((prev) => prev.filter((c) => c.id !== card.id))
@@ -74,6 +85,13 @@ export default function SavedPage() {
     if (error) {
       toast.error(error.message)
       return
+    }
+
+    if (type !== "read") {
+      const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", 1)
+      if (metricError) {
+        toast.error(metricError.message)
+      }
     }
 
     if (data) {

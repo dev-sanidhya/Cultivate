@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
 import { createClient } from "@/lib/supabase/client"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
+import { adjustCardMetric } from "@/lib/cardMetrics"
 import type { Card, CardInteraction } from "@/types"
 
 interface PublicCardActionsCardProps {
@@ -47,6 +48,10 @@ export function PublicCardActionsCard({ card, userId }: PublicCardActionsCardPro
         toast.error(error.message)
         return
       }
+      const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", -1)
+      if (metricError) {
+        toast.error(metricError.message)
+      }
       setInteractions((prev) => prev.filter((interaction) => interaction.id !== existing.id))
       return
     }
@@ -64,6 +69,11 @@ export function PublicCardActionsCard({ card, userId }: PublicCardActionsCardPro
     if (error) {
       toast.error(error.message)
       return
+    }
+
+    const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", 1)
+    if (metricError) {
+      toast.error(metricError.message)
     }
 
     if (data) setInteractions((prev) => [...prev, data as CardInteraction])
