@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Save, Plus } from "lucide-react"
-import type { ChatPricing } from "@/types"
+import { Save } from "lucide-react"
+import type { ChatPricing, FieldOption } from "@/types"
 
 const PLATFORM_KEYS = [
   { key: "support_email", label: "Support Email" },
@@ -18,20 +18,44 @@ const PLATFORM_KEYS = [
 export default function AdminConfigPage() {
   const [configs, setConfigs] = useState<Record<string, string>>({})
   const [pricing, setPricing] = useState<ChatPricing[]>([])
+  const [verifiedCategories, setVerifiedCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   async function loadData() {
     const supabase = createClient()
-    const [{ data: configData }, { data: pricingData }] = await Promise.all([
+    const [{ data: configData }, { data: pricingData }, { data: fieldOptionsData }] = await Promise.all([
       supabase.from("platform_config").select("*"),
       supabase.from("chat_pricing").select("*"),
+      supabase.from("field_options").select("field_name, value").eq("field_name", "looking_for").eq("is_approved", true).order("value"),
     ])
 
     const configMap: Record<string, string> = {}
     for (const c of configData ?? []) configMap[c.key] = c.value
     setConfigs(configMap)
-    setPricing(pricingData ?? [])
+
+    const verifiedLookingFor = ((fieldOptionsData ?? []) as FieldOption[])
+      .map((option) => option.value.trim())
+      .filter(Boolean)
+
+    const existingPricing = (pricingData ?? []) as ChatPricing[]
+    const pricingByCategory = new Map(existingPricing.map((row) => [row.looking_for_category, row] as const))
+
+    const missingCategories = verifiedLookingFor.filter((category) => !pricingByCategory.has(category))
+    if (missingCategories.length > 0) {
+      await supabase.from("chat_pricing").upsert(
+        missingCategories.map((category) => ({
+          looking_for_category: category,
+          price: 0,
+          duration_days: 30,
+        })),
+        { onConflict: "looking_for_category" },
+      )
+    }
+
+    const freshPricing = await supabase.from("chat_pricing").select("*")
+    setPricing((freshPricing.data ?? []) as ChatPricing[])
+    setVerifiedCategories(verifiedLookingFor)
     setLoading(false)
   }
 
@@ -56,18 +80,6 @@ export default function AdminConfigPage() {
     const supabase = createClient()
     await supabase.from("chat_pricing").update({ [field]: value }).eq("id", id)
     setPricing((prev) => prev.map((p) => p.id === id ? { ...p, [field]: value } : p))
-  }
-
-  async function addPricingRow() {
-    const category = prompt("Enter the Looking For category:")
-    if (!category) return
-    const supabase = createClient()
-    const { data } = await supabase.from("chat_pricing").insert({
-      looking_for_category: category,
-      price: 0,
-      duration_days: 30,
-    }).select().single()
-    if (data) setPricing((prev) => [...prev, data])
   }
 
   if (loading) return <div style={{ padding: 40, color: "var(--color-text-secondary)" }}>Loading...</div>
@@ -105,12 +117,6 @@ export default function AdminConfigPage() {
       <div className="card" style={{ padding: "24px", maxWidth: 700 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>Chat Pricing</h2>
-          <button
-            onClick={addPricingRow}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "var(--color-primary-bg)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}
-          >
-            <Plus size={14} /> Add Category
-          </button>
         </div>
 
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -124,7 +130,14 @@ export default function AdminConfigPage() {
           <tbody>
             {pricing.map((p) => (
               <tr key={p.id} style={{ borderTop: "1px solid var(--color-border-light)" }}>
-                <td style={{ padding: "10px 12px", fontSize: 14, fontWeight: 600, color: "var(--color-text)" }}>{p.looking_for_category}</td>
+                <td style={{ padding: "10px 12px", fontSize: 14, fontWeight: 600, color: "var(--color-text)" }}>
+                  {p.looking_for_category}
+                  {verifiedCategories.includes(p.looking_for_category) && (
+                    <span style={{ marginLeft: 8, fontSize: 11, color: "var(--color-success)", background: "var(--color-success-bg)", padding: "3px 8px", borderRadius: 999 }}>
+                      Verified
+                    </span>
+                  )}
+                </td>
                 <td style={{ padding: "10px 12px" }}>
                   <input
                     type="number"
