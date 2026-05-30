@@ -96,7 +96,7 @@ export function PersonalityCard({
       )}
 
       {/* Top row: Card ID + status */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
             style={{
@@ -137,34 +137,55 @@ export function PersonalityCard({
                 letterSpacing: -0.2,
                 pointerEvents: "none",
               }}
-            >
-              Strefo
-            </span>
+              >
+                Strefo
+              </span>
           )}
           {mode === "own" && (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
-                <Eye size={13} />
-                <span>{card.view_count}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
-                <Heart size={13} />
-                <span>{card.like_count}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
-                <Bookmark size={13} />
-                <span>{card.save_count}</span>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+              {!card.is_closed && card.is_public && (
+                <button
+                  onClick={onClose}
+                  aria-label="Close card"
+                  title="Close card"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--color-error)",
+                    background: "var(--color-error-bg)",
+                    padding: 0,
+                    borderRadius: "50%",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <CircleX size={16} />
+                </button>
+              )}
               <button
-                className="btn-ghost"
-                style={{ padding: 6 }}
-                onClick={shareCard}
-                aria-label="Share"
-                title="Share"
+                onClick={onEdit}
+                aria-label="Edit card"
+                title="Edit card"
+                style={{
+                  width: 40,
+                  height: 40,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--color-text-secondary)",
+                  background: "var(--color-surface)",
+                  padding: 0,
+                  borderRadius: "50%",
+                  border: "1px solid var(--color-border)",
+                  cursor: "pointer",
+                }}
               >
-                <Share2 size={15} color="var(--color-text-secondary)" />
+                <Pencil size={16} />
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -242,65 +263,44 @@ export function PersonalityCard({
 
       {/* Action bar */}
       {mode === "own" && (
-        <div style={{ display: "flex", gap: 10, borderTop: "1px solid var(--color-border-light)", paddingTop: 14 }}>
+        <div style={{ display: "flex", gap: 10, borderTop: "1px solid var(--color-border-light)", paddingTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+            <Eye size={13} />
+            <span>{card.view_count}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+            <Heart size={13} />
+            <span>{card.like_count}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+            <Bookmark size={13} />
+            <span>{card.save_count}</span>
+          </div>
+          <button
+            className="btn-ghost"
+            style={{ padding: 6 }}
+            onClick={shareCard}
+            aria-label="Share"
+            title="Share"
+          >
+            <Share2 size={15} color="var(--color-text-secondary)" />
+          </button>
           {card.chat_enabled ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-success)", background: "var(--color-success-bg)", padding: "5px 10px", borderRadius: 20 }}>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-success)", background: "var(--color-success-bg)", padding: "5px 10px", borderRadius: 20 }}>
               <Unlock size={12} /> Chat active
             </div>
           ) : (
             <button
               onClick={onUnlockChat}
               style={{
+                marginLeft: "auto",
                 display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600,
                 color: "var(--color-primary)", background: "var(--color-primary-bg)",
-                padding: "6px 14px", borderRadius: 20, border: "1px solid var(--color-border)",
+                padding: "10px 14px", borderRadius: 20, border: "1px solid var(--color-border)",
                 cursor: "pointer",
               }}
             >
               <Lock size={13} /> Unlock Chat
-            </button>
-          )}
-          <button
-            onClick={onEdit}
-            aria-label="Edit card"
-            title="Edit card"
-            style={{
-              marginLeft: "auto",
-              width: 40,
-              height: 40,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--color-text-secondary)",
-              background: "var(--color-surface)",
-              padding: 0,
-              borderRadius: "50%",
-              border: "1px solid var(--color-border)",
-              cursor: "pointer",
-            }}
-          >
-            <Pencil size={16} />
-          </button>
-          {!card.is_closed && card.is_public && (
-            <button
-              onClick={onClose}
-              aria-label="Close card"
-              title="Close card"
-              style={{
-                width: 40,
-                height: 40,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--color-error)",
-                background: "var(--color-error-bg)",
-                padding: 0,
-                borderRadius: "50%",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              <CircleX size={16} />
             </button>
           )}
         </div>
