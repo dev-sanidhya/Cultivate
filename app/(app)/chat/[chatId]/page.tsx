@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Send, Lock } from "lucide-react"
+import { ArrowLeft, Send, Lock, MoreVertical } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
@@ -25,6 +25,9 @@ export default function ChatConversationPage() {
   const [theirCard, setTheirCard] = useState<Card | null>(null)
   const [canReply, setCanReply] = useState(false)
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false)
+  const [showChatMenu, setShowChatMenu] = useState(false)
+  const [showDeletePrompt, setShowDeletePrompt] = useState(false)
+  const [deletingChat, setDeletingChat] = useState(false)
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -182,6 +185,26 @@ export default function ChatConversationPage() {
     setSending(false)
   }
 
+  async function deleteChat() {
+    if (!chatId) return
+
+    setDeletingChat(true)
+    const supabase = createClient()
+    const { error } = await supabase.from("chats").delete().eq("id", chatId)
+
+    setDeletingChat(false)
+    setShowDeletePrompt(false)
+    setShowChatMenu(false)
+
+    if (error) {
+      toast.error("Failed to delete chat")
+      return
+    }
+
+    toast.success("Chat deleted")
+    router.push("/chat")
+  }
+
   if (loading) {
     return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>Loading...</div>
   }
@@ -254,6 +277,63 @@ export default function ChatConversationPage() {
               My card #{myCard?.card_id ?? "-"}
             </span>
           </div>
+        </div>
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <button
+            className="btn-ghost"
+            aria-label="Chat options"
+            title="Chat options"
+            onClick={() => setShowChatMenu((prev) => !prev)}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "var(--color-primary-bg)",
+              color: "var(--color-primary)",
+            }}
+          >
+            <MoreVertical size={18} />
+          </button>
+
+          {showChatMenu && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 44,
+                minWidth: 168,
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 14,
+                boxShadow: "var(--shadow-lg)",
+                padding: 8,
+                zIndex: 20,
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowChatMenu(false)
+                  setShowDeletePrompt(true)
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--color-error)",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                Delete chat
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -366,6 +446,22 @@ export default function ChatConversationPage() {
         onConfirm={() => router.push("/cards")}
         onClose={() => router.push("/chat")}
         tone="warning"
+      />
+
+      <PopupModal
+        open={showDeletePrompt}
+        title="Delete this chat?"
+        message={
+          <>
+            This will permanently remove the conversation and its messages for both sides.
+          </>
+        }
+        confirmLabel={deletingChat ? "Deleting..." : "Delete"}
+        onConfirm={() => {
+          void deleteChat()
+        }}
+        onClose={() => setShowDeletePrompt(false)}
+        tone="danger"
       />
     </div>
   )

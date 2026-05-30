@@ -1,18 +1,89 @@
 import { createClient } from "@/lib/supabase/server"
 import Link from "next/link"
 import { Users, MessageSquarePlus } from "lucide-react"
-import { redirect } from "next/navigation"
 
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/")
+  if (!user) {
+    return (
+      <div className="page-container" style={{ paddingTop: 24 }}>
+        <div className="card" style={{ padding: 24, textAlign: "center" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", marginBottom: 8 }}>
+            Welcome to Strefo
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 18 }}>
+            Your session is not available right now. Sign in again to access your home screen.
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link
+              href="/login"
+              style={{
+                textDecoration: "none",
+                background: "var(--color-primary)",
+                color: "white",
+                padding: "10px 16px",
+                borderRadius: 999,
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/signup"
+              style={{
+                textDecoration: "none",
+                background: "var(--color-primary-bg)",
+                color: "var(--color-primary)",
+                padding: "10px 16px",
+                borderRadius: 999,
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              Create account
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("first_name")
     .eq("id", user.id)
     .single()
+
+  if (!profile) {
+    return (
+      <div className="page-container" style={{ paddingTop: 24 }}>
+        <div className="card" style={{ padding: 24, textAlign: "center" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--color-text)", marginBottom: 8 }}>
+            Complete your profile
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 18 }}>
+            We found your account, but the profile setup is incomplete. Continue setup to access the app.
+          </p>
+          <Link
+            href="/signup"
+            style={{
+              textDecoration: "none",
+              background: "var(--color-primary)",
+              color: "white",
+              padding: "10px 16px",
+              borderRadius: 999,
+              fontWeight: 700,
+              fontSize: 14,
+            }}
+          >
+            Continue signup
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="page-container" style={{ paddingTop: 10 }}>

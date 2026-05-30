@@ -1,12 +1,6 @@
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
 
 export default async function LandingPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect("/home")
-
   return (
     <main style={{ minHeight: "100vh", background: "#FAFAFA", color: "#1E1B4B", fontFamily: "var(--font-sans)" }}>
 

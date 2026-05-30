@@ -268,7 +268,7 @@ export default function ChatPage() {
                         color: "var(--color-primary)",
                         background: "linear-gradient(135deg, rgba(124,58,237,0.12), rgba(236,72,153,0.12))",
                         border: "1px solid rgba(124,58,237,0.14)",
-                        padding: "5px 10px",
+                        padding: "3px 10px",
                         borderRadius: 999,
                         textDecoration: "none",
                         boxShadow: "0 1px 2px rgba(109, 40, 217, 0.04)",
