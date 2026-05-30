@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
@@ -206,14 +207,14 @@ export default function ChatPage() {
 
       {chats.length === 0 ? (
         <div style={{ textAlign: "center", paddingTop: 60 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>ðŸ’¬</div>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--color-text)", marginBottom: 8 }}>No messages yet</h3>
           <p style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>
             Find someone on Search and start a conversation.
           </p>
         </div>
       ) : (
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "0 16px" }}>
           {chats.map(({ chat, otherProfile, theirCard, lastMessage, unread, canOpen }) => (
             <div
               key={chat.id}
@@ -233,15 +234,16 @@ export default function ChatPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: 14,
-                padding: "14px 20px",
-                background: "none",
-                border: "none",
-                borderBottom: "1px solid var(--color-border-light)",
+                padding: 14,
+                background: "var(--color-surface)",
+                borderRadius: 18,
+                boxShadow: "0 2px 10px rgba(124, 58, 237, 0.08)",
                 cursor: canOpen ? "pointer" : "not-allowed",
                 textAlign: "left",
-                transition: "background 0.1s",
+                transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
                 outline: "none",
                 opacity: canOpen ? 1 : 0.88,
+                overflow: "hidden",
               }}
             >
               <Avatar
@@ -252,17 +254,57 @@ export default function ChatPage() {
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text)" }}>
-                    #{theirCard?.card_id ?? "-"}
-                  </span>
+                  {theirCard?.card_id ? (
+                    <Link
+                      href={`/card/${theirCard.card_id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 13,
+                        fontWeight: 800,
+                        letterSpacing: 0.8,
+                        color: "var(--color-primary)",
+                        background: "linear-gradient(135deg, rgba(124,58,237,0.12), rgba(236,72,153,0.12))",
+                        border: "1px solid rgba(124,58,237,0.14)",
+                        padding: "5px 10px",
+                        borderRadius: 999,
+                        textDecoration: "none",
+                        boxShadow: "0 1px 2px rgba(109, 40, 217, 0.04)",
+                      }}
+                      aria-label={`Open card ${theirCard.card_id}`}
+                      title={`Open card ${theirCard.card_id}`}
+                    >
+                      #{theirCard.card_id}
+                    </Link>
+                  ) : (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        fontSize: 13,
+                        fontWeight: 800,
+                        letterSpacing: 0.8,
+                        color: "var(--color-text-muted)",
+                        background: "var(--color-border-light)",
+                        padding: "5px 10px",
+                        borderRadius: 999,
+                      }}
+                    >
+                      #-
+                    </span>
+                  )}
                   <span
                     style={{
                       fontSize: 11,
-                      color: "var(--color-text-secondary)",
+                      color: "var(--color-primary)",
                       fontWeight: 600,
-                      background: "var(--color-border-light)",
+                      background: "var(--color-primary-bg)",
+                      border: "1px solid var(--color-border)",
                       padding: "4px 8px",
                       borderRadius: 999,
+                      flexShrink: 0,
                     }}
                   >
                     {theirCard?.looking_for}
@@ -278,6 +320,7 @@ export default function ChatPage() {
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                       flex: 1,
+                      paddingRight: 8,
                     }}
                   >
                     {unread > 0
@@ -291,6 +334,9 @@ export default function ChatPage() {
                       whiteSpace: "nowrap",
                       flexShrink: 0,
                       marginTop: 1,
+                      background: "rgba(255,255,255,0.7)",
+                      padding: "2px 6px",
+                      borderRadius: 999,
                     }}
                   >
                     {lastMessage ? timeAgo(lastMessage.created_at) : ""}
