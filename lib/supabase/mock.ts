@@ -53,6 +53,24 @@ function createChannelMock() {
   }
 }
 
+function createStorageBucketMock() {
+  return {
+    upload(path: string) {
+      return Promise.resolve({ data: { path }, error: null })
+    },
+    getPublicUrl(path: string) {
+      return {
+        data: {
+          publicUrl: `https://mock.supabase.local/storage/v1/object/public/chat-images/${path}`,
+        },
+      }
+    },
+    remove(paths: string[]) {
+      return Promise.resolve({ data: paths, error: null })
+    },
+  }
+}
+
 // The mock intentionally stays permissive because app queries use Supabase's fluent API in many shapes.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createMockSupabaseClient(): any {
@@ -77,7 +95,7 @@ export function createMockSupabaseClient(): any {
     },
     storage: {
       from() {
-        return createChainableResult(null)
+        return createStorageBucketMock()
       },
     },
     channel() {

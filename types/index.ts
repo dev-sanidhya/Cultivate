@@ -135,6 +135,8 @@ export interface Message {
   chat_id: string
   sender_id: string
   content: string
+  message_type: "text" | "image"
+  image_url: string | null
   created_at: string
 }
 

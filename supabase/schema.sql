@@ -152,7 +152,9 @@ CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
   sender_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  message_type TEXT NOT NULL DEFAULT 'text',
+  image_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -175,6 +177,11 @@ CREATE TABLE IF NOT EXISTS chat_unlocks (
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Chat image uploads
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('chat-images', 'chat-images', true)
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
 -- User blocks
 CREATE TABLE IF NOT EXISTS user_blocks (
@@ -258,6 +265,62 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION block_user(UUID, TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION enforce_chat_message_media_rules()
+RETURNS TRIGGER AS $$
+DECLARE
+  chat_initiator_id UUID;
+  chat_recipient_id UUID;
+BEGIN
+  SELECT initiator_id, recipient_id
+  INTO chat_initiator_id, chat_recipient_id
+  FROM chats
+  WHERE id = NEW.chat_id;
+
+  IF chat_initiator_id IS NULL THEN
+    RAISE EXCEPTION 'Chat does not exist.';
+  END IF;
+
+  IF NEW.sender_id NOT IN (chat_initiator_id, chat_recipient_id) THEN
+    RAISE EXCEPTION 'Sender is not a participant in this chat.';
+  END IF;
+
+  IF COALESCE(NEW.message_type, 'text') = 'image' THEN
+    IF COALESCE(btrim(NEW.image_url), '') = '' THEN
+      RAISE EXCEPTION 'Image messages require an image URL.';
+    END IF;
+
+    IF COALESCE(btrim(NEW.content), '') <> '' THEN
+      RAISE EXCEPTION 'Image messages cannot include text.';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM messages
+      WHERE chat_id = NEW.chat_id
+        AND sender_id <> NEW.sender_id
+    ) THEN
+      RAISE EXCEPTION 'Photo sharing unlocks after the other user replies.';
+    END IF;
+  ELSE
+    IF COALESCE(btrim(NEW.content), '') = '' THEN
+      RAISE EXCEPTION 'Text messages require content.';
+    END IF;
+
+    IF NEW.image_url IS NOT NULL THEN
+      RAISE EXCEPTION 'Text messages cannot include an image URL.';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS messages_media_rules ON messages;
+CREATE TRIGGER messages_media_rules
+BEFORE INSERT ON messages
+FOR EACH ROW
+EXECUTE FUNCTION enforce_chat_message_media_rules();
 
 -- Notifications
 CREATE TABLE IF NOT EXISTS notifications (
@@ -437,6 +500,7 @@ ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_pricing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: users can read all, insert/update own
 CREATE POLICY "profiles_read_all" ON profiles FOR SELECT USING (true);
@@ -507,6 +571,24 @@ CREATE POLICY "platform_config_write" ON platform_config FOR ALL USING (true);
 -- Chat pricing: everyone can read
 CREATE POLICY "chat_pricing_read" ON chat_pricing FOR SELECT USING (true);
 CREATE POLICY "chat_pricing_write" ON chat_pricing FOR ALL USING (true);
+
+-- Chat images: public read, authenticated uploads to own folder
+DROP POLICY IF EXISTS "chat_images_read" ON storage.objects;
+CREATE POLICY "chat_images_read" ON storage.objects FOR SELECT USING (bucket_id = 'chat-images');
+
+DROP POLICY IF EXISTS "chat_images_insert" ON storage.objects;
+CREATE POLICY "chat_images_insert" ON storage.objects FOR INSERT WITH CHECK (
+  bucket_id = 'chat-images'
+  AND auth.uid() IS NOT NULL
+  AND split_part(name, '/', 1) = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "chat_images_delete" ON storage.objects;
+CREATE POLICY "chat_images_delete" ON storage.objects FOR DELETE USING (
+  bucket_id = 'chat-images'
+  AND auth.uid() IS NOT NULL
+  AND split_part(name, '/', 1) = auth.uid()::text
+);
 
 -- Visit logs
 CREATE POLICY "visit_logs_own" ON visit_logs FOR ALL USING (user_id = auth.uid());

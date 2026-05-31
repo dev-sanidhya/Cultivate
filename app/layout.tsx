@@ -1,12 +1,6 @@
 import type { Metadata, Viewport } from "next"
-import { Geist } from "next/font/google"
 import { Toaster } from "sonner"
 import "./globals.css"
-
-const geist = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-})
 
 export const metadata: Metadata = {
   title: "Strefo - Find Your People",
@@ -24,7 +18,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={geist.variable}>
+    <html lang="en">
       <body>
         {children}
         <Toaster
@@ -32,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           toastOptions={{
             style: {
               borderRadius: "12px",
-              fontFamily: "var(--font-geist-sans)",
+              fontFamily: "var(--font-sans)",
               fontSize: "14px",
             },
           }}

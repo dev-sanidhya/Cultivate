@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useState, useRef, type ChangeEvent } from "react"
+import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Send, Lock, MoreVertical } from "lucide-react"
+import { ArrowLeft, Send, Lock, MoreVertical, Image as ImageIcon, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
@@ -13,6 +14,25 @@ import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
 import { blockUser } from "@/lib/blocks"
 import { markChatAsRead } from "@/lib/badges"
 import type { Message, Profile, Card } from "@/types"
+
+const CHAT_IMAGE_BUCKET = "chat-images"
+
+function getImageExtension(file: File) {
+  switch (file.type) {
+    case "image/jpeg":
+      return "jpg"
+    case "image/png":
+      return "png"
+    case "image/webp":
+      return "webp"
+    case "image/gif":
+      return "gif"
+    case "image/avif":
+      return "avif"
+    default:
+      return file.name.split(".").pop()?.toLowerCase() || "png"
+  }
+}
 
 export default function ChatConversationPage() {
   const { chatId } = useParams<{ chatId: string }>()
@@ -32,8 +52,10 @@ export default function ChatConversationPage() {
   const [showBlockPrompt, setShowBlockPrompt] = useState(false)
   const [deletingChat, setDeletingChat] = useState(false)
   const [blockingUser, setBlockingUser] = useState(false)
+  const [imageSending, setImageSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)")
@@ -54,6 +76,8 @@ export default function ChatConversationPage() {
     const lastMessage = messages[messages.length - 1]
     void markChatAsRead(supabase, chatId, userId, lastMessage?.created_at ?? new Date().toISOString())
   }, [loading, userId, chatId, messages])
+
+  const canShareImages = canReply && messages.some((message) => message.sender_id !== userId)
 
   // Realtime subscription
   useEffect(() => {
@@ -180,34 +204,111 @@ export default function ChatConversationPage() {
     }
 
     setSending(true)
-    const supabase = createClient()
-    const messageText = newMessage.trim()
-    const { data: insertedMessage, error } = await supabase
-      .from("messages")
-      .insert({
-        chat_id: chatId,
-        sender_id: userId,
-        content: messageText,
-      })
-      .select("*")
-      .single()
-
-    if (!error && insertedMessage) {
-      setMessages((prev) =>
-        prev.some((message) => message.id === insertedMessage.id) ? prev : [...prev, insertedMessage as Message]
-      )
-      setNewMessage("")
-      void supabase
-        .from("chats")
-        .update({
-          last_message_at: insertedMessage.created_at,
-          last_activity_at: insertedMessage.created_at,
+    try {
+      const supabase = createClient()
+      const messageText = newMessage.trim()
+      const { data: insertedMessage, error } = await supabase
+        .from("messages")
+        .insert({
+          chat_id: chatId,
+          sender_id: userId,
+          content: messageText,
+          message_type: "text",
         })
-        .eq("id", chatId)
-    } else {
-      toast.error("Failed to send message")
+        .select("*")
+        .single()
+
+      if (!error && insertedMessage) {
+        setMessages((prev) =>
+          prev.some((message) => message.id === insertedMessage.id) ? prev : [...prev, insertedMessage as Message]
+        )
+        setNewMessage("")
+        void supabase
+          .from("chats")
+          .update({
+            last_message_at: insertedMessage.created_at,
+            last_activity_at: insertedMessage.created_at,
+          })
+          .eq("id", chatId)
+      } else {
+        toast.error("Failed to send message")
+      }
+    } finally {
+      setSending(false)
     }
-    setSending(false)
+  }
+
+  async function sendImageMessage(file: File) {
+    if (!canShareImages) {
+      toast.error("Photo sharing unlocks after the other user replies.")
+      return
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files can be shared.")
+      return
+    }
+
+    if (!userId || !chatId) return
+
+    setImageSending(true)
+    try {
+      const supabase = createClient()
+      const filePath = `${userId}/${chatId}/${Date.now()}-${crypto.randomUUID()}.${getImageExtension(file)}`
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(CHAT_IMAGE_BUCKET)
+        .upload(filePath, file, {
+          contentType: file.type,
+          upsert: false,
+        })
+
+      if (uploadError || !uploadData) {
+        toast.error(uploadError?.message ?? "Failed to upload photo")
+        return
+      }
+
+      const { data: publicUrlData } = supabase.storage.from(CHAT_IMAGE_BUCKET).getPublicUrl(uploadData.path)
+      const imageUrl = publicUrlData.publicUrl
+
+      const { data: insertedMessage, error } = await supabase
+        .from("messages")
+        .insert({
+          chat_id: chatId,
+          sender_id: userId,
+          content: "",
+          message_type: "image",
+          image_url: imageUrl,
+        })
+        .select("*")
+        .single()
+
+      if (!error && insertedMessage) {
+        setMessages((prev) =>
+          prev.some((message) => message.id === insertedMessage.id) ? prev : [...prev, insertedMessage as Message]
+        )
+        void supabase
+          .from("chats")
+          .update({
+            last_message_at: insertedMessage.created_at,
+            last_activity_at: insertedMessage.created_at,
+          })
+          .eq("id", chatId)
+      } else {
+        void supabase.storage.from(CHAT_IMAGE_BUCKET).remove([uploadData.path])
+        toast.error(error?.message ?? "Failed to send photo")
+      }
+    } finally {
+      setImageSending(false)
+    }
+  }
+
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+
+    if (!file) return
+    await sendImageMessage(file)
   }
 
   async function deleteChat() {
@@ -413,6 +514,7 @@ export default function ChatConversationPage() {
       <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
         {messages.map((msg) => {
           const isMine = msg.sender_id === userId
+          const isImageMessage = msg.message_type === "image" || Boolean(msg.image_url)
           return (
             <div
               key={msg.id}
@@ -424,16 +526,48 @@ export default function ChatConversationPage() {
               <div
                 style={{
                   maxWidth: "75%",
-                  padding: "10px 14px",
+                  padding: isImageMessage ? 8 : "10px 14px",
                   borderRadius: isMine ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
                   background: isMine ? "var(--color-primary)" : "var(--color-surface)",
                   color: isMine ? "white" : "var(--color-text)",
                   border: isMine ? "none" : "1px solid var(--color-border)",
                   fontSize: 15,
                   lineHeight: 1.4,
+                  overflow: "hidden",
                 }}
               >
-                <p>{msg.content}</p>
+                {isImageMessage ? (
+                  <a
+                    href={msg.image_url ?? "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "block",
+                      borderRadius: 14,
+                      overflow: "hidden",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <Image
+                      src={msg.image_url ?? ""}
+                      alt="Shared photo"
+                      width={260}
+                      height={320}
+                      unoptimized
+                      style={{
+                        display: "block",
+                        maxWidth: 260,
+                        maxHeight: 320,
+                        width: "100%",
+                        objectFit: "cover",
+                        borderRadius: 14,
+                        background: "rgba(15, 23, 42, 0.06)",
+                      }}
+                    />
+                  </a>
+                ) : (
+                  <p>{msg.content}</p>
+                )}
                 <p style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: "right" }}>
                   {timeAgo(msg.created_at)}
                 </p>
@@ -453,31 +587,77 @@ export default function ChatConversationPage() {
             background: "var(--color-surface)",
             borderTop: "1px solid var(--color-border)",
             display: "flex",
-            gap: 10,
+            flexDirection: "column",
+            gap: 8,
           }}
         >
-          <input
-            className="input"
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            style={{ flex: 1 }}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={sending || !newMessage.trim()}
-            style={{
-              width: 44, height: 44, borderRadius: "50%",
-              background: newMessage.trim() ? "var(--color-primary)" : "var(--color-border)",
-              border: "none", cursor: newMessage.trim() ? "pointer" : "default",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-              transition: "background 0.2s",
-            }}
-          >
-            <Send size={18} color="white" />
-          </button>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              style={{ display: "none" }}
+            />
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={!canShareImages || imageSending || sending}
+              title={
+                canShareImages
+                  ? "Share a photo"
+                  : "Photo sharing unlocks after the other user replies."
+              }
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: canShareImages ? "var(--color-primary-bg)" : "var(--color-border)",
+                color: canShareImages ? "var(--color-primary)" : "var(--color-text-secondary)",
+                border: "none",
+                cursor: canShareImages ? "pointer" : "not-allowed",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                transition: "background 0.2s",
+              }}
+            >
+              {imageSending ? <Loader2 size={18} /> : <ImageIcon size={18} />}
+            </button>
+            <input
+              className="input"
+              placeholder="Type a message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={sending || imageSending || !newMessage.trim()}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                background: newMessage.trim() && !sending && !imageSending ? "var(--color-primary)" : "var(--color-border)",
+                border: "none",
+                cursor: newMessage.trim() && !sending && !imageSending ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                transition: "background 0.2s",
+              }}
+            >
+              <Send size={18} color="white" />
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
+            {canShareImages
+              ? "Only image files are supported for photo sharing."
+              : "Photo sharing unlocks after the other person replies."}
+          </p>
         </div>
       ) : (
         <div

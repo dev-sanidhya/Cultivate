@@ -1,5 +1,7 @@
 "use client"
 
+import Image from "next/image"
+
 interface AvatarProps {
   name: string
   photoUrl?: string | null
@@ -24,7 +26,7 @@ export function Avatar({ name, photoUrl, size = 40, className = "", initialsOver
 
   if (photoUrl) {
     return (
-      <img
+      <Image
         src={photoUrl}
         alt={name}
         width={size}

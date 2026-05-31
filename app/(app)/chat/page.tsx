@@ -21,6 +21,12 @@ interface ChatListItem {
   canOpen: boolean
 }
 
+function getMessagePreview(message: Message | null) {
+  if (!message) return "No messages yet"
+  if (message.message_type === "image" || message.image_url) return "Photo"
+  return message.content || "No messages yet"
+}
+
 export default function ChatPage() {
   const pathname = usePathname()
   const router = useRouter()
@@ -334,7 +340,7 @@ export default function ChatPage() {
                   >
                     {unread > 0
                       ? `${unread} New message${unread === 1 ? "" : "s"}`
-                      : lastMessage?.content ?? "No messages yet"}
+                      : getMessagePreview(lastMessage)}
                   </span>
                   <span
                     style={{
