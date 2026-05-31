@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { Bell } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
@@ -46,23 +46,31 @@ export function AppHeader({ profile }: { profile: Profile }) {
     }
   }, [])
 
+  const refreshUnreadNotifications = useCallback(async () => {
+    if (!userId) return
+
+    const supabase = createClient()
+    try {
+      const count = await fetchUnreadNotificationCount(supabase, userId)
+      setUnreadNotifications(count)
+    } catch {
+      setUnreadNotifications(0)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void refreshUnreadNotifications()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [pathname, refreshUnreadNotifications])
+
   useEffect(() => {
     if (!userId) return
     const currentUserId = userId
 
     const supabase = createClient()
-    let active = true
-
-    async function refreshUnreadNotifications() {
-      try {
-        const count = await fetchUnreadNotificationCount(supabase, currentUserId)
-        if (active) setUnreadNotifications(count)
-      } catch {
-        if (active) setUnreadNotifications(0)
-      }
-    }
-
-    void refreshUnreadNotifications()
 
     const channel = supabase
       .channel(`notifications:${currentUserId}`)
@@ -76,10 +84,9 @@ export function AppHeader({ profile }: { profile: Profile }) {
       .subscribe()
 
     return () => {
-      active = false
       void supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [refreshUnreadNotifications, userId])
 
   if (isMobile && pathname.startsWith("/chat/")) {
     return null

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Home, CreditCard, Search, MessageCircle, Bookmark } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { fetchUnreadChatCount } from "@/lib/badges"
@@ -52,23 +52,31 @@ export function BottomNav() {
     }
   }, [])
 
+  const refreshUnreadChats = useCallback(async () => {
+    if (!userId) return
+
+    const supabase = createClient()
+    try {
+      const nextCount = await fetchUnreadChatCount(supabase, userId)
+      setUnreadChats(nextCount)
+    } catch {
+      setUnreadChats(0)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void refreshUnreadChats()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [pathname, refreshUnreadChats])
+
   useEffect(() => {
     if (!userId) return
     const currentUserId = userId
 
     const supabase = createClient()
-    let active = true
-
-    async function refreshUnreadChats() {
-      try {
-        const nextCount = await fetchUnreadChatCount(supabase, currentUserId)
-        if (active) setUnreadChats(nextCount)
-      } catch {
-        if (active) setUnreadChats(0)
-      }
-    }
-
-    void refreshUnreadChats()
 
     const channel = supabase
       .channel(`chat-unread:${currentUserId}`)
@@ -89,10 +97,9 @@ export function BottomNav() {
       .subscribe()
 
     return () => {
-      active = false
       void supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [refreshUnreadChats, userId])
 
   if (isMobile && pathname.startsWith("/chat/")) {
     return null
