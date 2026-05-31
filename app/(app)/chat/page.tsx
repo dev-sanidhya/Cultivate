@@ -187,6 +187,9 @@ export default function ChatPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
         void loadChats()
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "chats" }, () => {
+        void loadChats()
+      })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_reads", filter: `user_id=eq.${userId}` },

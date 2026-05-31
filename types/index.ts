@@ -147,6 +147,14 @@ export interface ChatUnlock {
   created_at: string
 }
 
+export interface UserBlock {
+  id: string
+  blocker_id: string
+  blocked_user_id: string
+  blocked_card_id: string
+  created_at: string
+}
+
 export interface Notification {
   id: string
   user_id: string

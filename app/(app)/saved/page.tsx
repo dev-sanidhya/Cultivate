@@ -9,6 +9,7 @@ import type { Card, CardInteraction } from "@/types"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
+import { getConversationBlockStatus } from "@/lib/blocks"
 import { adjustCardMetric } from "@/lib/cardMetrics"
 
 type Tab = "liked" | "saved"
@@ -104,6 +105,20 @@ export default function SavedPage() {
   async function handleChat(card: Card) {
     try {
       const supabase = createClient()
+      const blockStatus = await getConversationBlockStatus(supabase, {
+        userId,
+        otherUserId: card.user_id,
+      })
+
+      if (blockStatus.blockedByOther || blockStatus.blockedByMe) {
+        toast.error(
+          blockStatus.blockedByOther
+            ? "You are not allowed to contact this person."
+            : "You have blocked this user. Unblock them from your profile to contact them again.",
+        )
+        return
+      }
+
       const { data: unlocks } = await supabase
         .from("chat_unlocks")
         .select("id")

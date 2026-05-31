@@ -1,7 +1,8 @@
 import type { Card } from "@/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { getConversationBlockStatus } from "@/lib/blocks"
 
-type SupabaseLike = Pick<SupabaseClient, "from">
+type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
 
 export interface ChatCardRelation {
   initiator_id: string
@@ -69,6 +70,23 @@ export async function createChatForCardPair(
     theirCard: Card
   },
 ) {
+  const blockStatus = await getConversationBlockStatus(supabase, {
+    userId: params.userId,
+    otherUserId: params.otherUserId,
+  })
+
+  if (blockStatus.blockedByOther && blockStatus.blockedByMe) {
+    throw new Error("This conversation is blocked. Unblock this user from your profile to start a new chat.")
+  }
+
+  if (blockStatus.blockedByOther) {
+    throw new Error("You are not allowed to contact this person.")
+  }
+
+  if (blockStatus.blockedByMe) {
+    throw new Error("You have blocked this user. Unblock them from your profile to contact them again.")
+  }
+
   const existingChatId = await findExistingChatForCardPair(supabase, {
     userId: params.userId,
     otherUserId: params.otherUserId,

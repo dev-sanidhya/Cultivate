@@ -8,7 +8,9 @@ import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { timeAgo } from "@/lib/utils/format"
+import { getErrorMessage } from "@/lib/utils/errors"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
+import { blockUser } from "@/lib/blocks"
 import { markChatAsRead } from "@/lib/badges"
 import type { Message, Profile, Card } from "@/types"
 
@@ -27,7 +29,9 @@ export default function ChatConversationPage() {
   const [showUnlockPrompt, setShowUnlockPrompt] = useState(false)
   const [showChatMenu, setShowChatMenu] = useState(false)
   const [showDeletePrompt, setShowDeletePrompt] = useState(false)
+  const [showBlockPrompt, setShowBlockPrompt] = useState(false)
   const [deletingChat, setDeletingChat] = useState(false)
+  const [blockingUser, setBlockingUser] = useState(false)
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -68,6 +72,27 @@ export default function ChatConversationPage() {
 
     return () => { supabase.removeChannel(channel) }
   }, [chatId])
+
+  useEffect(() => {
+    if (!chatId) return
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`chat-deletes:${chatId}`)
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "chats", filter: `id=eq.${chatId}` },
+        () => {
+          toast.info("This conversation is no longer available.")
+          router.push("/chat")
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [chatId, router])
 
   const loadChat = useCallback(async () => {
     const supabase = createClient()
@@ -205,6 +230,31 @@ export default function ChatConversationPage() {
     router.push("/chat")
   }
 
+  async function confirmBlockUser() {
+    if (!chatId || !theirCard?.card_id || !otherProfile?.id) return
+
+    setBlockingUser(true)
+    const supabase = createClient()
+
+    try {
+      await blockUser(supabase, {
+        blockerId: userId,
+        blockedUserId: otherProfile.id,
+        blockedCardId: theirCard.card_id,
+      })
+      toast.success("User blocked")
+      router.push("/chat")
+    } catch (error) {
+      const message = getErrorMessage(error, "Failed to block user")
+      console.error("Block user failed", error)
+      toast.error(message)
+    } finally {
+      setBlockingUser(false)
+      setShowBlockPrompt(false)
+      setShowChatMenu(false)
+    }
+  }
+
   if (loading) {
     return <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>Loading...</div>
   }
@@ -331,6 +381,28 @@ export default function ChatConversationPage() {
                 }}
               >
                 Delete chat
+              </button>
+              <button
+                onClick={() => {
+                  setShowChatMenu(false)
+                  setShowBlockPrompt(true)
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--color-error)",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                Block user
               </button>
             </div>
           )}
@@ -461,6 +533,26 @@ export default function ChatConversationPage() {
           void deleteChat()
         }}
         onClose={() => setShowDeletePrompt(false)}
+        tone="danger"
+      />
+
+      <PopupModal
+        open={showBlockPrompt}
+        title="Block this user?"
+        message={
+          <>
+            This will delete <strong>all chats</strong> between both users and prevent any new messages. It cannot be restored.
+            <br />
+            <span style={{ display: "inline-block", marginTop: 8 }}>
+              Blocking via card <strong>#{theirCard?.card_id ?? "-"}</strong>
+            </span>
+          </>
+        }
+        confirmLabel={blockingUser ? "Blocking..." : "Block"}
+        onConfirm={() => {
+          void confirmBlockUser()
+        }}
+        onClose={() => setShowBlockPrompt(false)}
         tone="danger"
       />
     </div>

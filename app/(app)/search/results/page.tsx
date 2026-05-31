@@ -10,6 +10,7 @@ import { ChatCardPickerModal } from "@/components/chat/ChatCardPickerModal"
 import { Spinner } from "@/components/ui/Spinner"
 import type { Card, CardInteraction, Search } from "@/types"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
+import { getConversationBlockStatus } from "@/lib/blocks"
 import { adjustCardMetric } from "@/lib/cardMetrics"
 
 const FILTERS = ["All", "Read", "Unread", "Saved", "Liked"] as const
@@ -296,6 +297,20 @@ function SearchResultsContent() {
   async function handleChat(card: Card) {
     try {
       const supabase = createClient()
+      const blockStatus = await getConversationBlockStatus(supabase, {
+        userId,
+        otherUserId: card.user_id,
+      })
+
+      if (blockStatus.blockedByOther || blockStatus.blockedByMe) {
+        toast.error(
+          blockStatus.blockedByOther
+            ? "You are not allowed to contact this person."
+            : "You have blocked this user. Unblock them from your profile to contact them again.",
+        )
+        return
+      }
+
       const { data: unlocks } = await supabase
         .from("chat_unlocks")
         .select("id")

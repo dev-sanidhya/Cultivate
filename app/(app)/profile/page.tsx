@@ -7,11 +7,14 @@ import { createClient } from "@/lib/supabase/client"
 import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
 import { formatDate } from "@/lib/utils/format"
-import type { Profile } from "@/types"
+import { fetchBlockedUsers, unblockUser } from "@/lib/blocks"
+import { toast } from "sonner"
+import type { Profile, UserBlock } from "@/types"
 
 export default function ProfilePage() {
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [blockedUsers, setBlockedUsers] = useState<UserBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [signingOut, setSigningOut] = useState(false)
 
@@ -19,13 +22,42 @@ export default function ProfilePage() {
     async function load() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-      setProfile(data)
+      if (!user) {
+        setLoading(false)
+        return
+      }
+
+      const [{ data: profileData }, blockedData] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        fetchBlockedUsers(supabase, user.id),
+      ])
+
+      setProfile(profileData)
+      setBlockedUsers(blockedData)
       setLoading(false)
     }
-    load()
+
+    void load().catch(() => {
+      setLoading(false)
+    })
   }, [])
+
+  async function handleUnblock(blockedUserId: string) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    try {
+      await unblockUser(supabase, {
+        blockerId: user.id,
+        blockedUserId,
+      })
+      setBlockedUsers((prev) => prev.filter((item) => item.blocked_user_id !== blockedUserId))
+      toast.success("User unblocked")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to unblock user")
+    }
+  }
 
   async function signOut() {
     setSigningOut(true)
@@ -86,6 +118,57 @@ export default function ProfilePage() {
           <p style={{ fontSize: 12, color: "var(--color-text-muted)", textAlign: "center", marginBottom: 24 }}>
             Profile details are permanent and cannot be changed.
           </p>
+
+          {blockedUsers.length > 0 && (
+            <div className="card" style={{ padding: "20px", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16 }}>
+                Blocked users
+              </h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {blockedUsers.map((blocked) => (
+                  <div
+                    key={blocked.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      padding: "14px 16px",
+                      borderRadius: 14,
+                      background: "var(--color-primary-bg)",
+                      border: "1px solid var(--color-border)",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                        Blocked via card
+                      </p>
+                      <p style={{ fontSize: 15, fontWeight: 800, color: "var(--color-text)", wordBreak: "break-word" }}>
+                        #{blocked.blocked_card_id}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        void handleUnblock(blocked.blocked_user_id)
+                      }}
+                      style={{
+                        flexShrink: 0,
+                        padding: "10px 14px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(239, 68, 68, 0.2)",
+                        background: "white",
+                        color: "var(--color-error)",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Unblock
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={signOut}
