@@ -592,39 +592,39 @@ export default function ChatConversationPage() {
           }}
         >
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              style={{ display: "none" }}
-            />
-            <button
-              type="button"
-              onClick={() => imageInputRef.current?.click()}
-              disabled={!canShareImages || imageSending || sending}
-              title={
-                canShareImages
-                  ? "Share a photo"
-                  : "Photo sharing unlocks after the other user replies."
-              }
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                background: canShareImages ? "var(--color-primary-bg)" : "var(--color-border)",
-                color: canShareImages ? "var(--color-primary)" : "var(--color-text-secondary)",
-                border: "none",
-                cursor: canShareImages ? "pointer" : "not-allowed",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                transition: "background 0.2s",
-              }}
-            >
-              {imageSending ? <Loader2 size={18} /> : <ImageIcon size={18} />}
-            </button>
+            {canShareImages && (
+              <>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  style={{ display: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={imageSending || sending}
+                  title="Share a photo"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    background: "var(--color-primary-bg)",
+                    color: "var(--color-primary)",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    transition: "background 0.2s",
+                  }}
+                >
+                  {imageSending ? <Loader2 size={18} /> : <ImageIcon size={18} />}
+                </button>
+              </>
+            )}
             <input
               className="input"
               placeholder="Type a message..."
@@ -656,7 +656,7 @@ export default function ChatConversationPage() {
           <p style={{ fontSize: 12, color: "var(--color-text-secondary)", margin: 0 }}>
             {canShareImages
               ? "Only image files are supported for photo sharing."
-              : "Photo sharing unlocks after the other person replies."}
+              : "You can only send 3 messages until the other person replies."}
           </p>
         </div>
       ) : (
