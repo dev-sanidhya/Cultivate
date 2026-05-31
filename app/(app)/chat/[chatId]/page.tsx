@@ -392,6 +392,7 @@ export default function ChatConversationPage() {
           name={`${otherProfile?.first_name} ${otherProfile?.last_name}`}
           photoUrl={otherProfile?.photo_url}
           size={40}
+          initialsOverride={theirCard?.card_id?.slice(0, 2) ?? undefined}
         />
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
