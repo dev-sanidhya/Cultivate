@@ -138,6 +138,12 @@ export default function ChatPage() {
       })
     }
 
+    items.sort((a, b) => {
+      const aTime = new Date(a.lastMessage?.created_at ?? a.chat.last_message_at ?? a.chat.created_at).getTime()
+      const bTime = new Date(b.lastMessage?.created_at ?? b.chat.last_message_at ?? b.chat.created_at).getTime()
+      return bTime - aTime
+    })
+
     setChats(items)
     setLoading(false)
   }, [])
