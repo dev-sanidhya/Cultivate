@@ -12,7 +12,11 @@ export function CardViewTracker({ cardId }: { cardId: string }) {
     hasTrackedRef.current = true
 
     const supabase = createClient()
-    void adjustCardMetric(supabase, cardId, "view_count", 1)
+    // Supabase query builders are lazy: the request is only sent when the
+    // builder is awaited or `.then()` is called. A bare `void` never fires it.
+    adjustCardMetric(supabase, cardId, "view_count", 1).then(({ error }) => {
+      if (error) console.error("Failed to track card view", error)
+    })
   }, [cardId])
 
   return null
