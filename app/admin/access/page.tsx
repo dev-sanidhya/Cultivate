@@ -1,19 +1,36 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { ADMIN_PAGES } from "@/types"
 import type { AdminUser } from "@/types"
 import { sha256Hex } from "@/lib/utils/hash"
+
+type AdminFormData = {
+  name: string
+  username: string
+  password: string
+  role: "employee" | "owner"
+  accessible_pages: string[]
+}
+
+const EMPTY_FORM_DATA: AdminFormData = {
+  name: "",
+  username: "",
+  password: "",
+  role: "employee",
+  accessible_pages: [],
+}
 
 export default function AdminAccessPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({ name: "", username: "", password: "", role: "employee" as "employee" | "owner", accessible_pages: [] as string[] })
-  const [creating, setCreating] = useState(false)
+  const [editingAdminId, setEditingAdminId] = useState<string | null>(null)
+  const [formData, setFormData] = useState<AdminFormData>(EMPTY_FORM_DATA)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => { loadAdmins() }, [])
 
@@ -24,38 +41,106 @@ export default function AdminAccessPage() {
     setLoading(false)
   }
 
-  async function createAdmin() {
-    if (!formData.name || !formData.username || !formData.password) {
+  function openCreateForm() {
+    setEditingAdminId(null)
+    setFormData(EMPTY_FORM_DATA)
+    setShowForm(true)
+  }
+
+  function openEditForm(admin: AdminUser) {
+    setEditingAdminId(admin.id)
+    setFormData({
+      name: admin.name,
+      username: admin.username,
+      password: "",
+      role: admin.role,
+      accessible_pages: admin.accessible_pages ?? [],
+    })
+    setShowForm(true)
+  }
+
+  function closeForm() {
+    setShowForm(false)
+    setEditingAdminId(null)
+    setFormData(EMPTY_FORM_DATA)
+  }
+
+  async function saveAdmin(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+
+    if (!formData.name || !formData.username || (!editingAdminId && !formData.password)) {
       toast.error("Fill all fields")
       return
     }
-    setCreating(true)
-    const supabase = createClient()
-    const passwordHash = await sha256Hex(formData.password)
 
-    const { error } = await supabase.from("admin_users").insert({
+    setSaving(true)
+    const supabase = createClient()
+
+    const payload: Partial<AdminUser> & { password_hash?: string } = {
       name: formData.name,
       username: formData.username,
-      password_hash: passwordHash,
       role: formData.role,
       accessible_pages: formData.accessible_pages,
-    })
+    }
+
+    if (formData.password) {
+      payload.password_hash = await sha256Hex(formData.password)
+    }
+
+    const { error } = editingAdminId
+      ? await supabase.from("admin_users").update(payload).eq("id", editingAdminId)
+      : await supabase.from("admin_users").insert({
+          ...payload,
+          password_hash: payload.password_hash ?? "",
+        })
 
     if (error) {
       toast.error(error.message)
     } else {
-      toast.success("Admin created")
-      setShowForm(false)
-      setFormData({ name: "", username: "", password: "", role: "employee", accessible_pages: [] })
-      loadAdmins()
+      const isEditingCurrentAdmin = (() => {
+        if (typeof window === "undefined" || !editingAdminId) return false
+        const stored = sessionStorage.getItem("admin_user")
+        if (!stored) return false
+        try {
+          return JSON.parse(stored)?.id === editingAdminId
+        } catch {
+          return false
+        }
+      })()
+
+      if (isEditingCurrentAdmin) {
+        const stored = sessionStorage.getItem("admin_user")
+        if (stored) {
+          try {
+            const currentUser = JSON.parse(stored)
+            sessionStorage.setItem("admin_user", JSON.stringify({
+              ...currentUser,
+              name: formData.name,
+              role: formData.role,
+              accessible_pages: formData.accessible_pages,
+            }))
+          } catch {
+            // Ignore malformed session storage and let the layout refresh on next load.
+          }
+        }
+      }
+
+      toast.success(editingAdminId ? "Admin updated" : "Admin created")
+      closeForm()
+      await loadAdmins()
     }
-    setCreating(false)
+    setSaving(false)
   }
 
   async function deleteAdmin(id: string) {
     if (!confirm("Delete this admin?")) return
     const supabase = createClient()
-    await supabase.from("admin_users").delete().eq("id", id)
+    const { error } = await supabase.from("admin_users").delete().eq("id", id)
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
     setAdmins((prev) => prev.filter((a) => a.id !== id))
     toast.success("Admin removed")
   }
@@ -65,7 +150,7 @@ export default function AdminAccessPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--color-text)" }}>User Access</h1>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={openCreateForm}
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 18px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}
         >
           <Plus size={16} /> New Admin
@@ -74,8 +159,10 @@ export default function AdminAccessPage() {
 
       {showForm && (
         <div className="card" style={{ padding: "24px", marginBottom: 24, maxWidth: 500 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Create Admin Account</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
+            {editingAdminId ? "Edit Admin Account" : "Create Admin Account"}
+          </h2>
+          <form onSubmit={saveAdmin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
               <label className="label">Name</label>
               <input className="input" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" />
@@ -86,13 +173,25 @@ export default function AdminAccessPage() {
             </div>
             <div>
               <label className="label">Password</label>
-              <input className="input" type="password" value={formData.password} onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))} placeholder="Password" />
+              <input
+                className="input"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
+                placeholder={editingAdminId ? "Leave blank to keep current password" : "Password"}
+              />
             </div>
             <div>
               <label className="label">Role</label>
               <div style={{ display: "flex", gap: 8 }}>
                 {(["employee", "owner"] as const).map((r) => (
-                  <button key={r} className={`tag ${formData.role === r ? "selected" : ""}`} onClick={() => setFormData((p) => ({ ...p, role: r }))} style={{ textTransform: "capitalize" }}>
+                  <button
+                    key={r}
+                    type="button"
+                    className={`tag ${formData.role === r ? "selected" : ""}`}
+                    onClick={() => setFormData((p) => ({ ...p, role: r }))}
+                    style={{ textTransform: "capitalize" }}
+                  >
                     {r}
                   </button>
                 ))}
@@ -104,6 +203,7 @@ export default function AdminAccessPage() {
                 {ADMIN_PAGES.map(({ key, label }) => (
                   <button
                     key={key}
+                    type="button"
                     className={`tag ${formData.accessible_pages.includes(key) ? "selected" : ""}`}
                     onClick={() => {
                       setFormData((p) => ({
@@ -120,12 +220,12 @@ export default function AdminAccessPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowForm(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
-              <button onClick={createAdmin} disabled={creating} className="btn-primary" style={{ flex: 1 }}>
-                {creating ? "Creating..." : "Create Admin"}
+              <button type="button" onClick={closeForm} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
+              <button type="submit" disabled={saving} className="btn-primary" style={{ flex: 1 }}>
+                {saving ? (editingAdminId ? "Saving..." : "Creating...") : (editingAdminId ? "Save Changes" : "Create Admin")}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
@@ -159,11 +259,32 @@ export default function AdminAccessPage() {
                   {admin.accessible_pages?.length ?? 0} pages
                 </td>
                 <td style={{ padding: "12px 16px" }}>
-                  {admin.role !== "owner" && (
-                    <button onClick={() => deleteAdmin(admin.id)} className="btn-ghost" style={{ padding: 6 }}>
-                      <Trash2 size={14} color="var(--color-error)" />
-                    </button>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {admin.role !== "owner" && (
+                      <button
+                        type="button"
+                        onClick={() => openEditForm(admin)}
+                        className="btn-ghost"
+                        style={{ padding: 6 }}
+                        title="Edit admin"
+                        aria-label={`Edit ${admin.username}`}
+                      >
+                        <Pencil size={14} color="var(--color-primary)" />
+                      </button>
+                    )}
+                    {admin.role !== "owner" && (
+                      <button
+                        type="button"
+                        onClick={() => deleteAdmin(admin.id)}
+                        className="btn-ghost"
+                        style={{ padding: 6 }}
+                        title="Delete admin"
+                        aria-label={`Delete ${admin.username}`}
+                      >
+                        <Trash2 size={14} color="var(--color-error)" />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
