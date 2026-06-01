@@ -298,21 +298,6 @@ export function CardForm({
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            placeholder="Type your own..."
-            value={customInputs.personality_types ?? ""}
-            onChange={(e) => setCustomInputs((p) => ({ ...p, personality_types: e.target.value }))}
-            onKeyDown={(e) => e.key === "Enter" && addCustomOption("personality_types", "personality_types")}
-          />
-          <button
-            onClick={() => addCustomOption("personality_types", "personality_types")}
-            style={{ padding: "10px 16px", background: "var(--color-primary-bg)", border: "1px solid var(--color-border)", borderRadius: 10, color: "var(--color-primary)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontSize: 13 }}
-          >
-            Add
-          </button>
-        </div>
       </div>
 
       {/* Tagged Address */}
