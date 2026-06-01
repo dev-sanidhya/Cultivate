@@ -65,6 +65,7 @@ export default function AdminFieldsPage() {
       await supabase.from("custom_option_requests").update({ status: "rejected" }).eq("id", req.id)
       // Remove from user's card
       const { data: card } = await supabase.from("cards").select("*").eq("id", req.card_id).single()
+      const rejectedCardId = card?.card_id ?? req.card_id
       if (card) {
         const field = req.field_name as "personality_types" | "qualities" | "hobbies" | "looking_for"
         if (field === "looking_for") {
@@ -77,8 +78,14 @@ export default function AdminFieldsPage() {
       // Notify user
       await supabase.from("notifications").insert({
         user_id: req.user_id,
-        message: `Your custom option "${req.value}" for the "${req.field_name}" field was not approved. Please update it.`,
+        message: `Your custom option "${req.value}" for the "${req.field_name}" field on card #${rejectedCardId} was not approved. Please update it.`,
         type: "custom_option_rejected",
+        metadata: {
+          card_id: rejectedCardId,
+          field_name: req.field_name,
+          value: req.value,
+          request_id: req.id,
+        },
       })
       toast.success("Request rejected")
     } else {
