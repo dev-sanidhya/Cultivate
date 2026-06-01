@@ -207,13 +207,3 @@ export const CARD_FIELDS_WITH_OPTIONS: CardField[] = [
   "qualities",
   "hobbies",
 ]
-
-export const ADMIN_PAGES = [
-  { key: "stats", label: "Statistics" },
-  { key: "users", label: "User Management" },
-  { key: "fields", label: "Card Fields" },
-  { key: "contacts", label: "Contact Status" },
-  { key: "config", label: "Platform Config" },
-  { key: "notifications", label: "Send Notifications" },
-  { key: "access", label: "User Access" },
-]

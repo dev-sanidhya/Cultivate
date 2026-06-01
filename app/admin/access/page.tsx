@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { Pencil, Plus, Trash2 } from "lucide-react"
-import { ADMIN_PAGES } from "@/types"
+import { ADMIN_PAGES } from "@/lib/admin-access"
 import type { AdminUser } from "@/types"
 import { sha256Hex } from "@/lib/utils/hash"
 

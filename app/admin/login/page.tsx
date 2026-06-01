@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Spinner } from "@/components/ui/Spinner"
 import { sha256Hex } from "@/lib/utils/hash"
+import { getDefaultAdminPath } from "@/lib/admin-access"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -40,7 +41,7 @@ export default function AdminLoginPage() {
       accessible_pages: admin.accessible_pages,
     }))
 
-    router.push("/admin/stats")
+    router.push(getDefaultAdminPath(admin) ?? "/admin/login")
     setLoading(false)
   }
 
