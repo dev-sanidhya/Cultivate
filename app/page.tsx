@@ -1,11 +1,36 @@
 import Link from "next/link"
+import { PersonalityCard } from "@/components/cards/PersonalityCard"
+import type { Card } from "@/types"
+
+const demoCard: Card = {
+  id: "landing-demo-card",
+  card_id: "KFOKNS",
+  user_id: "landing-demo-user",
+  age: 19,
+  gender: "male",
+  personality_types: ["INTJ"],
+  tagged_address: null,
+  looking_for: "Co-founder",
+  qualities: ["Funny", "Pragmatic"],
+  hobbies: ["Coding", "Travelling"],
+  note: "acha",
+  is_public: true,
+  is_closed: false,
+  closed_with_profile_id: null,
+  chat_enabled: false,
+  view_count: 0,
+  save_count: 0,
+  like_count: 0,
+  created_at: "",
+  updated_at: "",
+}
 
 export default async function LandingPage() {
   return (
-    <main style={{ minHeight: "100vh", background: "#FAFAFA", color: "#1E1B4B", fontFamily: "var(--font-sans)" }}>
+    <main className="landing-page" style={{ minHeight: "100vh", background: "#FAFAFA", color: "#1E1B4B", fontFamily: "var(--font-sans)" }}>
 
       {/* Nav */}
-      <nav style={{
+      <nav className="landing-nav" style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
         padding: "0 48px",
         height: 64,
@@ -34,25 +59,18 @@ export default async function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section style={{
+      <section className="landing-hero" style={{
         minHeight: "100vh",
         background: "linear-gradient(160deg, #F5F3FF 0%, #FDF2F8 55%, #FAFAFA 100%)",
         display: "flex", alignItems: "center",
         padding: "100px 48px 80px",
       }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", gap: 72 }}>
+        <div className="landing-hero-inner" style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", gap: 72 }}>
 
           {/* Left */}
-          <div style={{ flex: "0 0 500px", maxWidth: 500 }}>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              background: "#EDE9FE", borderRadius: 999, padding: "6px 14px", marginBottom: 28,
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#7C3AED", display: "inline-block" }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#7C3AED", letterSpacing: 1 }}>PERSONALITY-FIRST CONNECTIONS</span>
-            </div>
+          <div className="landing-hero-copy" style={{ flex: "0 0 500px", maxWidth: 500, minWidth: 0 }}>
 
-            <h1 style={{
+            <h1 className="landing-hero-title" style={{
               fontSize: "clamp(38px, 4.5vw, 58px)", fontWeight: 800, lineHeight: 1.1,
               letterSpacing: "-1.5px", marginBottom: 22,
             }}>
@@ -63,13 +81,13 @@ export default async function LandingPage() {
               }}>actually get you</span>
             </h1>
 
-            <p style={{
-              fontSize: 17, lineHeight: 1.75, color: "#6B7280", marginBottom: 40, maxWidth: 420,
+            <p className="landing-hero-description" style={{
+              fontSize: 17, lineHeight: 1.75, color: "#6B7280", maxWidth: 420,
             }}>
               Create a personality card. Describe who you are and the kind of connection you&apos;re looking for. Let people find you - or go find them.
             </p>
 
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <div className="landing-hero-actions" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <Link href="/signup" style={{
                 background: "linear-gradient(135deg, #7C3AED, #EC4899)",
                 color: "white", textDecoration: "none", fontSize: 16, fontWeight: 600,
@@ -83,110 +101,46 @@ export default async function LandingPage() {
               }}>Sign in</Link>
             </div>
 
-            <p style={{ fontSize: 13, color: "#9CA3AF", marginTop: 20 }}>
+            <p className="landing-hero-note" style={{ fontSize: 13, color: "#9CA3AF", marginTop: 20 }}>
               No swiping. No algorithms. Just honest connections.
             </p>
           </div>
 
           {/* Right - mock card */}
-          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0 }}>
-            <div style={{ position: "relative", width: "100%", maxWidth: 320 }}>
-              {/* Glow behind card */}
-              <div style={{
-                position: "absolute", inset: -30,
-                background: "radial-gradient(ellipse at center, rgba(124,58,237,0.12) 0%, transparent 70%)",
+          <div className="landing-hero-visual" style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minWidth: 0 }}>
+            <div className="landing-mock-shell" style={{ position: "relative", width: "100%", maxWidth: 390 }}>
+              <div className="landing-mock-glow" style={{
+                position: "absolute",
+                inset: "-28px -18px -24px",
+                background: "radial-gradient(ellipse at center, rgba(124,58,237,0.12) 0%, transparent 68%)",
                 pointerEvents: "none",
               }} />
-
-              {/* Main card */}
-              <div style={{
-                background: "white", borderRadius: 24, padding: 28,
-                border: "1.5px solid #EDE9FE",
-                boxShadow: "0 16px 60px rgba(124, 58, 237, 0.12), 0 4px 16px rgba(124, 58, 237, 0.06)",
-                position: "relative",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
-                  <div>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: "#9CA3AF", letterSpacing: 1.5, marginBottom: 3 }}>PERSONALITY CARD</p>
-                    <p style={{ fontSize: 14, fontWeight: 800, color: "#7C3AED", letterSpacing: 3 }}>RX7A2K</p>
-                  </div>
-                  <div style={{
-                    background: "linear-gradient(135deg, #7C3AED, #EC4899)",
-                    borderRadius: 999, padding: "5px 13px",
-                    fontSize: 11, fontWeight: 700, color: "white",
-                  }}>Co-founder</div>
-                </div>
-
-                <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-                  {["23", "Male", "Delhi"].map(m => (
-                    <span key={m} style={{
-                      background: "#F5F3FF", borderRadius: 999, padding: "4px 10px",
-                      fontSize: 12, fontWeight: 500, color: "#6B7280",
-                    }}>{m}</span>
-                  ))}
-                </div>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                  {["INTJ", "Analytical", "Ambitious"].map(t => (
-                    <span key={t} style={{
-                      background: "#EDE9FE", borderRadius: 999, padding: "4px 11px",
-                      fontSize: 11, fontWeight: 600, color: "#7C3AED",
-                    }}>{t}</span>
-                  ))}
-                </div>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
-                  {["Coding", "Reading", "Travelling"].map(h => (
-                    <span key={h} style={{
-                      background: "#FDF2F8", borderRadius: 999, padding: "4px 11px",
-                      fontSize: 11, fontWeight: 600, color: "#EC4899",
-                    }}>{h}</span>
-                  ))}
-                </div>
-
-                <p style={{
-                  fontSize: 13, lineHeight: 1.65, color: "#6B7280",
-                  background: "#F9FAFB", borderRadius: 12, padding: "10px 14px",
-                  borderLeft: "3px solid #7C3AED", marginBottom: 20,
-                  fontStyle: "italic",
-                }}>
-                  &ldquo;Building in EdTech. Looking for someone obsessed with execution, not just ideas.&rdquo;
-                </p>
-
-                <div style={{ display: "flex", gap: 8 }}>
-                  <div style={{
-                    flex: 1, textAlign: "center", padding: "9px 0",
-                    background: "#F5F3FF", borderRadius: 10,
-                    fontSize: 12, fontWeight: 600, color: "#7C3AED",
-                  }}>Like</div>
-                  <div style={{
-                    flex: 1, textAlign: "center", padding: "9px 0",
-                    background: "#F5F3FF", borderRadius: 10,
-                    fontSize: 12, fontWeight: 600, color: "#7C3AED",
-                  }}>Save</div>
-                  <div style={{
-                    flex: 1, textAlign: "center", padding: "9px 0",
-                    background: "linear-gradient(135deg, #7C3AED, #EC4899)", borderRadius: 10,
-                    fontSize: 12, fontWeight: 700, color: "white",
-                  }}>Chat</div>
-                </div>
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <PersonalityCard card={demoCard} mode="search" showBrandMark />
               </div>
-
-              {/* Card behind */}
-              <div style={{
-                position: "absolute", bottom: -12, left: 16, right: 16, height: 48,
-                background: "white", border: "1.5px solid #EDE9FE",
-                borderRadius: 24, zIndex: -1,
-                boxShadow: "0 8px 24px rgba(124, 58, 237, 0.06)",
-              }} />
             </div>
           </div>
 
         </div>
       </section>
 
+      <section className="landing-mobile-card-section">
+        <p className="landing-mobile-card-note">No swiping. No algorithms. Just honest connections.</p>
+        <div className="landing-mobile-card-shell">
+          <div className="landing-mock-glow" style={{
+            position: "absolute",
+            inset: "-28px -18px -24px",
+            background: "radial-gradient(ellipse at center, rgba(124,58,237,0.12) 0%, transparent 68%)",
+            pointerEvents: "none",
+          }} />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <PersonalityCard card={demoCard} mode="search" showBrandMark />
+          </div>
+        </div>
+      </section>
+
       {/* How it works */}
-      <section style={{ padding: "96px 48px", background: "white", borderTop: "1px solid #EDE9FE" }}>
+      <section className="landing-section" style={{ padding: "96px 48px", background: "white", borderTop: "1px solid #EDE9FE" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: "#7C3AED", textAlign: "center", marginBottom: 14 }}>HOW IT WORKS</p>
           <h2 style={{ fontSize: "clamp(26px, 3.5vw, 38px)", fontWeight: 800, textAlign: "center", letterSpacing: "-1px", marginBottom: 60 }}>
@@ -216,7 +170,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Connection types */}
-      <section style={{ padding: "96px 48px", background: "#F5F3FF", borderTop: "1px solid #EDE9FE" }}>
+      <section className="landing-section landing-section-accent" style={{ padding: "96px 48px", background: "#F5F3FF", borderTop: "1px solid #EDE9FE" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: "#EC4899", textAlign: "center", marginBottom: 14 }}>WHAT ARE YOU LOOKING FOR?</p>
           <h2 style={{ fontSize: "clamp(26px, 3.5vw, 38px)", fontWeight: 800, textAlign: "center", letterSpacing: "-1px", marginBottom: 52 }}>
@@ -249,7 +203,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section style={{
+      <section className="landing-section landing-cta" style={{
         padding: "96px 48px",
         background: "linear-gradient(160deg, #F5F3FF 0%, #FDF2F8 100%)",
         borderTop: "1px solid #EDE9FE",
@@ -279,7 +233,7 @@ export default async function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer style={{
+      <footer className="landing-footer" style={{
         padding: "28px 48px",
         borderTop: "1px solid #EDE9FE",
         background: "white",
