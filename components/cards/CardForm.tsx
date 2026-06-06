@@ -298,6 +298,21 @@ export function CardForm({
             </button>
           ))}
         </div>
+        <a
+          href="https://www.16personalities.com/free-personality-test"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "inline-block",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--color-primary)",
+            textDecoration: "underline",
+            textUnderlineOffset: 2,
+          }}
+        >
+          Know your Personality Type
+        </a>
       </div>
 
       {/* Tagged Address */}
