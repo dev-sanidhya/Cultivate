@@ -19,6 +19,7 @@ interface PersonalityCardProps {
   onMarkRead?: (read: boolean) => void
   onFullscreen?: () => void
   showBrandMark?: boolean
+  showTaggedLocation?: boolean
   isRead?: boolean
   fullscreen?: boolean
 }
@@ -36,6 +37,7 @@ export function PersonalityCard({
   onMarkRead,
   onFullscreen,
   showBrandMark,
+  showTaggedLocation,
   isRead,
   fullscreen = false,
 }: PersonalityCardProps) {
@@ -52,7 +54,8 @@ export function PersonalityCard({
     }
   }
 
-  const addressLabel = card.tagged_address ? formatTaggedAddress(card.tagged_address) : null
+  const shouldShowTaggedLocation = showTaggedLocation ?? mode !== "search"
+  const addressLabel = shouldShowTaggedLocation && card.tagged_address ? formatTaggedAddress(card.tagged_address) : null
 
   return (
     <div

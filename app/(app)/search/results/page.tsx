@@ -504,6 +504,7 @@ function SearchResultsContent() {
   const fullscreenDisplayIndex = activeFullscreenIndex ?? 0
   const card = filteredCards[activeCurrentIndex]
   const fullscreenCard = activeFullscreenIndex !== null ? filteredCards[activeFullscreenIndex] : null
+  const showTaggedLocation = !!search?.tagged_address && search.search_type === "filter"
 
   useEffect(() => {
     if (activeFullscreenIndex === null) return
@@ -558,6 +559,7 @@ function SearchResultsContent() {
                 mode="search"
                 interactions={interactions}
                 isRead={reads.has(card.id)}
+                showTaggedLocation={showTaggedLocation}
                 onLike={() => handleInteraction(card, "like")}
                 onSave={() => handleInteraction(card, "save")}
                 onMarkRead={(read) => handleMarkRead(card, read)}
@@ -658,6 +660,7 @@ function SearchResultsContent() {
                 mode="search"
                 interactions={interactions}
                 isRead={reads.has(fullscreenCard.id)}
+                showTaggedLocation={showTaggedLocation}
                 onLike={() => handleInteraction(fullscreenCard, "like")}
                 onSave={() => handleInteraction(fullscreenCard, "save")}
                 onMarkRead={(read) => handleMarkRead(fullscreenCard, read)}
