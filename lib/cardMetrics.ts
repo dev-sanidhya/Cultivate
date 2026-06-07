@@ -25,3 +25,8 @@ export function adjustCardMetric(
 export function fetchOwnCardMetrics(supabase: SupabaseClient) {
   return supabase.rpc("get_own_card_metrics")
 }
+
+/** Bump a card's view count and any active prioritization view counter together. */
+export function recordCardView(supabase: SupabaseClient, cardId: string) {
+  return supabase.rpc("record_card_view", { p_card_id: cardId })
+}

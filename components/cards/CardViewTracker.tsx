@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { adjustCardMetric } from "@/lib/cardMetrics"
+import { recordCardView } from "@/lib/cardMetrics"
 
 export function CardViewTracker({ cardId }: { cardId: string }) {
   const hasTrackedRef = useRef(false)
@@ -14,7 +14,7 @@ export function CardViewTracker({ cardId }: { cardId: string }) {
     const supabase = createClient()
     // Supabase query builders are lazy: the request is only sent when the
     // builder is awaited or `.then()` is called. A bare `void` never fires it.
-    adjustCardMetric(supabase, cardId, "view_count", 1).then(({ error }) => {
+    recordCardView(supabase, cardId).then(({ error }) => {
       if (error) console.error("Failed to track card view", error)
     })
   }, [cardId])

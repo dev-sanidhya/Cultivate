@@ -6,17 +6,32 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
 import { ChatCardPickerModal } from "@/components/chat/ChatCardPickerModal"
-import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
-import { getConversationBlockStatus } from "@/lib/blocks"
+import { ChatUnlockChoiceModal } from "@/components/chat/ChatUnlockChoiceModal"
+import { createChatForCardPair } from "@/lib/chat"
+import { resolveChatStart, completeDirectUnlock, type ChatViewer } from "@/lib/chatFlow"
 import { adjustCardMetric } from "@/lib/cardMetrics"
+import { ageFromDateOfBirth } from "@/lib/utils/age"
+import type { Counterpart } from "@/lib/lookingFor"
 import type { Card, CardInteraction } from "@/types"
+
+interface UnlockChoiceState {
+  target: Card
+  counterpart: Counterpart
+  price: number
+  durationDays: number
+}
 
 export function PublicCardViewer({ card }: { card: Card }) {
   const router = useRouter()
-  const [userId, setUserId] = useState("")
+  const [viewer, setViewer] = useState<ChatViewer | null>(null)
   const [interactions, setInteractions] = useState<CardInteraction[]>([])
   const [chatTargetCard, setChatTargetCard] = useState<Card | null>(null)
   const [shareCards, setShareCards] = useState<Card[]>([])
+  const [shareCounterpart, setShareCounterpart] = useState<Counterpart | null>(null)
+  const [unlockChoice, setUnlockChoice] = useState<UnlockChoiceState | null>(null)
+  const [unlockLoading, setUnlockLoading] = useState(false)
+
+  const userId = viewer?.id ?? ""
 
   useEffect(() => {
     const supabase = createClient()
@@ -27,24 +42,30 @@ export function PublicCardViewer({ card }: { card: Card }) {
       if (!active) return
 
       if (!user) {
-        setUserId("")
+        setViewer(null)
         setInteractions([])
         return
       }
 
-      setUserId(user.id)
-      const { data, error } = await supabase
-        .from("card_interactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("card_id", card.id)
+      const [{ data: profile }, { data, error }] = await Promise.all([
+        supabase.from("profiles").select("gender, date_of_birth").eq("id", user.id).single(),
+        supabase.from("card_interactions").select("*").eq("user_id", user.id).eq("card_id", card.id),
+      ])
 
       if (!active) return
+
+      if (profile) {
+        setViewer({
+          id: user.id,
+          gender: profile.gender,
+          age: ageFromDateOfBirth(profile.date_of_birth),
+        })
+      }
+
       if (error) {
         toast.error(error.message)
         return
       }
-
       setInteractions((data ?? []) as CardInteraction[])
     })()
 
@@ -100,60 +121,36 @@ export function PublicCardViewer({ card }: { card: Card }) {
   }
 
   async function handleChat() {
-    if (!userId) {
+    if (!viewer) {
       router.push("/login")
       return
     }
 
     try {
       const supabase = createClient()
-      const blockStatus = await getConversationBlockStatus(supabase, {
-        userId,
-        otherUserId: card.user_id,
-      })
+      const result = await resolveChatStart(supabase, viewer, card)
 
-      if (blockStatus.blockedByOther || blockStatus.blockedByMe) {
-        toast.error(
-          blockStatus.blockedByOther
-            ? "You are not allowed to contact this person."
-            : "You have blocked this user. Unblock them from your profile to contact them again.",
-        )
-        return
+      switch (result.kind) {
+        case "blocked":
+          toast.error(result.message)
+          return
+        case "redirect":
+          router.push(`/chat/${result.chatId}`)
+          return
+        case "pick":
+          setChatTargetCard(result.target)
+          setShareCards(result.cards)
+          setShareCounterpart(result.counterpart)
+          return
+        case "needUnlock":
+          setUnlockChoice({
+            target: result.target,
+            counterpart: result.counterpart,
+            price: result.price,
+            durationDays: result.durationDays,
+          })
+          return
       }
-
-      const { data: unlocks } = await supabase
-        .from("chat_unlocks")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("looking_for_category", card.looking_for)
-        .gt("expires_at", new Date().toISOString())
-
-      if (!unlocks?.length) {
-        toast.error(`You need an active card with "Looking For: ${card.looking_for}" to chat.`)
-        router.push("/cards")
-        return
-      }
-
-      const eligibleCards = await fetchEligibleShareCards(supabase, userId, card.looking_for)
-
-      if (eligibleCards.length === 0) {
-        toast.error(`No enabled card found with "Looking For: ${card.looking_for}".`)
-        return
-      }
-
-      if (eligibleCards.length === 1) {
-        const chatId = await createChatForCardPair(supabase, {
-          userId,
-          otherUserId: card.user_id,
-          myCard: eligibleCards[0],
-          theirCard: card,
-        })
-        if (chatId) router.push(`/chat/${chatId}`)
-        return
-      }
-
-      setChatTargetCard(card)
-      setShareCards(eligibleCards)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to start chat"
       toast.error(message)
@@ -169,13 +166,37 @@ export function PublicCardViewer({ card }: { card: Card }) {
         otherUserId: chatTargetCard.user_id,
         myCard,
         theirCard: chatTargetCard,
+        targetGender: shareCounterpart?.looking_for_gender ?? null,
       })
       setChatTargetCard(null)
       setShareCards([])
+      setShareCounterpart(null)
       if (chatId) router.push(`/chat/${chatId}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to start chat"
       toast.error(message)
+    }
+  }
+
+  async function handleDirectUnlock() {
+    if (!viewer || !unlockChoice) return
+    setUnlockLoading(true)
+    try {
+      const supabase = createClient()
+      const chatId = await completeDirectUnlock(
+        supabase,
+        viewer,
+        unlockChoice.target,
+        unlockChoice.counterpart,
+        unlockChoice.durationDays,
+      )
+      setUnlockChoice(null)
+      router.push(`/chat/${chatId}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to unlock chat"
+      toast.error(message)
+    } finally {
+      setUnlockLoading(false)
     }
   }
 
@@ -205,7 +226,21 @@ export function PublicCardViewer({ card }: { card: Card }) {
         onClose={() => {
           setChatTargetCard(null)
           setShareCards([])
+          setShareCounterpart(null)
         }}
+      />
+
+      <ChatUnlockChoiceModal
+        open={!!unlockChoice}
+        target={unlockChoice?.target ?? null}
+        counterpart={unlockChoice?.counterpart ?? null}
+        price={unlockChoice?.price ?? 0}
+        durationDays={unlockChoice?.durationDays ?? 0}
+        loading={unlockLoading}
+        onUnlock={() => {
+          void handleDirectUnlock()
+        }}
+        onClose={() => setUnlockChoice(null)}
       />
     </>
   )

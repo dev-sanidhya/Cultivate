@@ -1,4 +1,4 @@
-import type { Card } from "@/types"
+import type { Card, Gender } from "@/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { getConversationBlockStatus } from "@/lib/blocks"
 
@@ -25,8 +25,9 @@ export async function fetchEligibleShareCards(
   supabase: SupabaseLike,
   userId: string,
   lookingFor: string,
+  targetGender: Gender | null = null,
 ) {
-  const { data, error } = await supabase
+  let query = supabase
     .from("cards")
     .select("*")
     .eq("user_id", userId)
@@ -34,7 +35,10 @@ export async function fetchEligibleShareCards(
     .eq("chat_enabled", true)
     .eq("is_closed", false)
     .eq("is_public", true)
-    .order("created_at", { ascending: false })
+
+  query = targetGender == null ? query.is("looking_for_gender", null) : query.eq("looking_for_gender", targetGender)
+
+  const { data, error } = await query.order("created_at", { ascending: false })
 
   if (error) throw error
   return (data ?? []) as Card[]
@@ -68,6 +72,7 @@ export async function createChatForCardPair(
     otherUserId: string
     myCard: Card
     theirCard: Card
+    targetGender?: Gender | null
   },
 ) {
   const blockStatus = await getConversationBlockStatus(supabase, {
@@ -104,6 +109,7 @@ export async function createChatForCardPair(
       initiator_card_id: params.myCard.id,
       recipient_card_id: params.theirCard.id,
       looking_for_category: params.theirCard.looking_for,
+      target_gender: params.targetGender ?? params.myCard.looking_for_gender ?? null,
     })
     .select("id")
     .single()
