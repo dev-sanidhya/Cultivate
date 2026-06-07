@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { BottomNav } from "@/components/ui/BottomNav"
 import { AppHeader } from "@/components/ui/AppHeader"
 import { VisitTracker } from "@/components/VisitTracker"
+import { ExpiryNotifier } from "@/components/ExpiryNotifier"
 import { DesktopSidebarNav } from "@/components/ui/DesktopSidebarNav"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -23,6 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <DesktopSidebarNav />
       <div className="app-content-frame">
         <VisitTracker userId={user.id} />
+        <ExpiryNotifier userId={user.id} />
         <AppHeader profile={profile} />
         <main className="app-main">
           {children}
