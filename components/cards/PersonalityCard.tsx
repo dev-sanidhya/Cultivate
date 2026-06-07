@@ -5,6 +5,7 @@ import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, Bo
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
+import { formatLookingFor } from "@/lib/lookingFor"
 
 interface PersonalityCardProps {
   card: Card
@@ -209,7 +210,7 @@ export function PersonalityCard({
               fontWeight: 600,
             }}
           >
-            Looking for: {card.looking_for}
+            Looking for: {formatLookingFor(card.looking_for, card.looking_for_gender)}
           </div>
         </div>
       )}

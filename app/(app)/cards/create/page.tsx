@@ -59,6 +59,7 @@ export default function CreateCardPage() {
     personality_types: string[]
     tagged_address: import("@/types").TaggedAddress | null
     looking_for: string
+    looking_for_gender: Gender | null
     qualities: string[]
     hobbies: string[]
     note: string
@@ -96,6 +97,7 @@ export default function CreateCardPage() {
         personality_types: data.personality_types,
         tagged_address: data.tagged_address,
         looking_for: data.looking_for,
+        looking_for_gender: data.looking_for_gender,
         qualities: data.qualities,
         hobbies: data.hobbies,
         note: data.note || null,

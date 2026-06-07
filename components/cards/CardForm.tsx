@@ -6,13 +6,17 @@ import { toast } from "sonner"
 import { moderateNote } from "@/lib/utils/moderation"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { TaggedAddressFieldGroup } from "@/components/cards/TaggedAddressFieldGroup"
+import { requiresGenderSelection } from "@/lib/lookingFor"
 import type { TaggedAddress, TaggedAddressType, Gender, FieldOption } from "@/types"
+
+const TARGET_GENDERS: Gender[] = ["male", "female", "other"]
 
 interface CardFormData {
   age: string
   personality_types: string[]
   tagged_address: TaggedAddress | null
   looking_for: string
+  looking_for_gender: Gender | null
   qualities: string[]
   hobbies: string[]
   note: string
@@ -28,6 +32,7 @@ interface CardFormProps {
   submitLabel?: string
   loading?: boolean
   disabled?: boolean
+  lookingForLocked?: boolean
 }
 
 interface ContactViolationResult {
@@ -49,10 +54,12 @@ export function CardForm({
   submitLabel = "Create Card",
   loading = false,
   disabled = false,
+  lookingForLocked = false,
 }: CardFormProps) {
   const [age, setAge] = useState(initialData?.age ?? "")
   const [personalityTypes, setPersonalityTypes] = useState<string[]>(initialData?.personality_types ?? [])
   const [lookingFor, setLookingFor] = useState(initialData?.looking_for ?? "")
+  const [lookingForGender, setLookingForGender] = useState<Gender | "">(initialData?.looking_for_gender ?? "")
   const [qualities, setQualities] = useState<string[]>(initialData?.qualities ?? [])
   const [hobbies, setHobbies] = useState<string[]>(initialData?.hobbies ?? [])
   const [note, setNote] = useState(initialData?.note ?? "")
@@ -94,11 +101,19 @@ export function CardForm({
     setter(current.includes(value) ? current.filter((v) => v !== value) : [...current, value])
   }
 
+  function selectLookingFor(value: string) {
+    setLookingFor(value)
+    // Gender-specific options (e.g. Sugar Daddy) carry an implied gender, so clear any picked target gender.
+    if (!requiresGenderSelection(value)) {
+      setLookingForGender("")
+    }
+  }
+
   function addCustomOption(field: string, setterField: MultiSelectField | "looking_for") {
     const value = customInputs[field]?.trim()
     if (!value) return
     if (setterField === "looking_for") {
-      setLookingFor(value)
+      selectLookingFor(value)
     } else {
       toggleMultiSelect(setterField, value)
     }
@@ -150,6 +165,10 @@ export function CardForm({
       toast.error("Select what you're looking for")
       return
     }
+    if (requiresGenderSelection(lookingFor) && !lookingForGender) {
+      toast.error("Select the gender you're looking for")
+      return
+    }
 
     const noteModeration = moderateNote(note)
     if (noteModeration.blocked) {
@@ -175,6 +194,7 @@ export function CardForm({
       personality_types: personalityTypes,
       tagged_address: buildTaggedAddress(),
       looking_for: lookingFor,
+      looking_for_gender: requiresGenderSelection(lookingFor) ? (lookingForGender || null) : null,
       qualities,
       hobbies,
       note,
@@ -261,28 +281,52 @@ export function CardForm({
             <button
               key={opt}
               className={`tag ${lookingFor === opt ? "selected" : ""}`}
-              onClick={() => setLookingFor(lookingFor === opt ? "" : opt)}
+              onClick={() => !lookingForLocked && selectLookingFor(lookingFor === opt ? "" : opt)}
+              disabled={lookingForLocked}
+              style={lookingForLocked ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
             >
               {opt}
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            placeholder="Type your own..."
-            value={customInputs.looking_for ?? ""}
-            onChange={(e) => setCustomInputs((p) => ({ ...p, looking_for: e.target.value }))}
-            onKeyDown={(e) => e.key === "Enter" && addCustomOption("looking_for", "looking_for")}
-          />
-          <button
-            onClick={() => addCustomOption("looking_for", "looking_for")}
-            style={{ padding: "10px 16px", background: "var(--color-primary-bg)", border: "1px solid var(--color-border)", borderRadius: 10, color: "var(--color-primary)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontSize: 13 }}
-          >
-            Add
-          </button>
-        </div>
+        {!lookingForLocked && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              className="input"
+              placeholder="Type your own..."
+              value={customInputs.looking_for ?? ""}
+              onChange={(e) => setCustomInputs((p) => ({ ...p, looking_for: e.target.value }))}
+              onKeyDown={(e) => e.key === "Enter" && addCustomOption("looking_for", "looking_for")}
+            />
+            <button
+              onClick={() => addCustomOption("looking_for", "looking_for")}
+              style={{ padding: "10px 16px", background: "var(--color-primary-bg)", border: "1px solid var(--color-border)", borderRadius: 10, color: "var(--color-primary)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontSize: 13 }}
+            >
+              Add
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Looking For - gender (only for non gender-specific options) */}
+      {requiresGenderSelection(lookingFor) && (
+        <div>
+          <label className="label">Gender You&apos;re Looking For *</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {TARGET_GENDERS.map((g) => (
+              <button
+                key={g}
+                className={`tag ${lookingForGender === g ? "selected" : ""}`}
+                onClick={() => !lookingForLocked && setLookingForGender(lookingForGender === g ? "" : g)}
+                disabled={lookingForLocked}
+                style={{ textTransform: "capitalize", ...(lookingForLocked ? { opacity: 0.6, cursor: "not-allowed" } : {}) }}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Personality Type */}
       <div>
