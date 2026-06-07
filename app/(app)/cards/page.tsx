@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/Spinner"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
+import { enableChatForCategory } from "@/lib/chatFlow"
 import type { Card, Profile } from "@/types"
 
 type ChatWithProfiles = {
@@ -147,34 +148,31 @@ export default function CardsPage() {
 
   async function handleUnlockChat(card: Card) {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
     const { data: pricing } = await supabase
       .from("chat_pricing")
       .select("*")
       .eq("looking_for_category", card.looking_for)
-      .single()
+      .maybeSingle()
 
-    const price = pricing?.price ?? 0
     const duration = pricing?.duration_days ?? 30
 
-    if (price === 0) {
-      // Free - unlock immediately
-      await supabase
-        .from("cards")
-        .update({ chat_enabled: true })
-        .eq("id", card.id)
+    // Unlock applies to the whole (category, gender); enable every same-category card.
+    // Payment is mocked as successful until a gateway is integrated.
+    await supabase.from("chat_unlocks").insert({
+      user_id: user.id,
+      card_id: card.id,
+      looking_for_category: card.looking_for,
+      target_gender: card.looking_for_gender,
+      expires_at: new Date(Date.now() + duration * 86400000).toISOString(),
+    })
 
-      await supabase.from("chat_unlocks").insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-        card_id: card.id,
-        looking_for_category: card.looking_for,
-        expires_at: new Date(Date.now() + duration * 86400000).toISOString(),
-      })
+    await enableChatForCategory(supabase, user.id, card.looking_for, card.looking_for_gender)
 
-      toast.success("Chat unlocked!")
-      loadCards()
-    } else {
-      toast.info(`Chat unlock costs ₹${price / 100}. Payment integration coming soon.`)
-    }
+    toast.success("Chat unlocked!")
+    loadCards()
   }
 
   async function handleCloseCard(card: Card) {
