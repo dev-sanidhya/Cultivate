@@ -26,6 +26,11 @@ ALTER TABLE chats
 ALTER TABLE field_options
   ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- 4b. Searches: optional target-gender filter
+ALTER TABLE searches
+  ADD COLUMN IF NOT EXISTS looking_for_gender TEXT
+    CHECK (looking_for_gender IS NULL OR looking_for_gender IN ('male', 'female', 'other'));
+
 -- 5. Prioritization plans (admin-managed, separate sets for N and S)
 CREATE TABLE IF NOT EXISTS prioritization_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

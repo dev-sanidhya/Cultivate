@@ -52,6 +52,7 @@ function SearchResultsContent() {
   const [cards, setCards] = useState<Card[]>([])
   const [interactions, setInteractions] = useState<CardInteraction[]>([])
   const [reads, setReads] = useState<Set<string>>(new Set())
+  const [priorityByCard, setPriorityByCard] = useState<Record<string, { plan_type: "N" | "S"; created_at: string }>>({})
   const [filter, setFilter] = useState<Filter>("All")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null)
@@ -121,7 +122,6 @@ function SearchResultsContent() {
         .select("*, profile:profiles(id, first_name, last_name, photo_url)")
         .eq("is_public", true)
         .eq("is_closed", false)
-        .neq("user_id", user.id)
 
       if (searchData?.search_type === "card_id") {
         const cardIdQuery = searchData.card_id_query?.trim()
@@ -139,6 +139,9 @@ function SearchResultsContent() {
         const lookingFor = searchData?.looking_for?.trim()
         if (lookingFor) {
           query = query.ilike("looking_for", lookingFor)
+        }
+        if (searchData?.looking_for_gender) {
+          query = query.eq("looking_for_gender", searchData.looking_for_gender)
         }
 
         const personalityTypes = normalizeSelectedValues(searchData?.personality_types)
@@ -169,7 +172,6 @@ function SearchResultsContent() {
           .select("*")
           .eq("is_public", true)
           .eq("is_closed", false)
-          .neq("user_id", user.id)
 
         if (searchData?.search_type === "card_id") {
           const cardIdQuery = searchData.card_id_query?.trim()
@@ -187,6 +189,9 @@ function SearchResultsContent() {
           const lookingFor = searchData?.looking_for?.trim()
           if (lookingFor) {
             fallbackQuery.ilike("looking_for", lookingFor)
+          }
+          if (searchData?.looking_for_gender) {
+            fallbackQuery.eq("looking_for_gender", searchData.looking_for_gender)
           }
 
           const personalityTypes = normalizeSelectedValues(searchData?.personality_types)
@@ -215,13 +220,78 @@ function SearchResultsContent() {
 
       if (cardsError) throw cardsError
 
+      let resultCards = (cardsData ?? []) as Card[]
+
+      // S-Prioritize injection: S-prioritized cards surface at the top when only
+      // gender + Looking For type + Looking For gender match, ignoring other filters.
+      if (searchData?.search_type === "filter") {
+        const { data: sActive } = await supabase
+          .from("card_prioritizations")
+          .select("card_id")
+          .eq("plan_type", "S")
+          .gt("expires_at", new Date().toISOString())
+
+        const sCardIds = (sActive ?? []).map((row: { card_id: string }) => row.card_id)
+        if (sCardIds.length > 0) {
+          let sQuery = supabase
+            .from("cards")
+            .select("*, profile:profiles(id, first_name, last_name, photo_url)")
+            .eq("is_public", true)
+            .eq("is_closed", false)
+            .in("id", sCardIds)
+
+          const gender = searchData?.gender?.trim()
+          if (gender) sQuery = sQuery.ilike("gender", gender)
+          const lookingFor = searchData?.looking_for?.trim()
+          if (lookingFor) sQuery = sQuery.ilike("looking_for", lookingFor)
+          if (searchData?.looking_for_gender) sQuery = sQuery.eq("looking_for_gender", searchData.looking_for_gender)
+
+          const { data: sCards } = await sQuery
+          const existingIds = new Set(resultCards.map((c) => c.id))
+          for (const sc of (sCards ?? []) as Card[]) {
+            if (!existingIds.has(sc.id)) resultCards.push(sc)
+          }
+        }
+      }
+
+      // Fetch active prioritizations for the result set and sort.
+      const cardIds = resultCards.map((c) => c.id)
+      const priorityMap: Record<string, { plan_type: "N" | "S"; created_at: string }> = {}
+      if (cardIds.length > 0) {
+        const { data: priorityRows } = await supabase
+          .from("card_prioritizations")
+          .select("card_id, plan_type, created_at")
+          .in("card_id", cardIds)
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+
+        for (const row of (priorityRows ?? []) as { card_id: string; plan_type: "N" | "S"; created_at: string }[]) {
+          const existing = priorityMap[row.card_id]
+          // Prefer S over N for the badge; keep the most recent prioritization time.
+          if (!existing || (existing.plan_type !== "S" && row.plan_type === "S")) {
+            priorityMap[row.card_id] = { plan_type: row.plan_type, created_at: row.created_at }
+          }
+        }
+      }
+
+      // Prioritized cards first (newest prioritization first), then the rest by creation time (oldest first).
+      resultCards = [...resultCards].sort((a, b) => {
+        const pa = priorityMap[a.id]
+        const pb = priorityMap[b.id]
+        if (pa && pb) return new Date(pb.created_at).getTime() - new Date(pa.created_at).getTime()
+        if (pa) return -1
+        if (pb) return 1
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      })
+
       const { data: interactionsData, error: interactionsError } = await supabase
         .from("card_interactions")
         .select("*")
         .eq("user_id", user.id)
       if (interactionsError) throw interactionsError
 
-      setCards(cardsData ?? [])
+      setCards(resultCards)
+      setPriorityByCard(priorityMap)
       setInteractions(interactionsData ?? [])
 
       const readSet = new Set<string>(
@@ -584,6 +654,7 @@ function SearchResultsContent() {
         <div>
           {/* Card viewer */}
           <div style={{ position: "relative" }}>
+            {card && priorityByCard[card.id] && <PrioritizationBadge type={priorityByCard[card.id].plan_type} />}
             {card && (
               <PersonalityCard
                 card={card}
@@ -591,6 +662,7 @@ function SearchResultsContent() {
                 interactions={interactions}
                 isRead={reads.has(card.id)}
                 showTaggedLocation={showTaggedLocation}
+                isOwnInSearch={card.user_id === userId}
                 onLike={() => handleInteraction(card, "like")}
                 onSave={() => handleInteraction(card, "save")}
                 onMarkRead={(read) => handleMarkRead(card, read)}
@@ -692,6 +764,7 @@ function SearchResultsContent() {
                 interactions={interactions}
                 isRead={reads.has(fullscreenCard.id)}
                 showTaggedLocation={showTaggedLocation}
+                isOwnInSearch={fullscreenCard.user_id === userId}
                 onLike={() => handleInteraction(fullscreenCard, "like")}
                 onSave={() => handleInteraction(fullscreenCard, "save")}
                 onMarkRead={(read) => handleMarkRead(fullscreenCard, read)}
@@ -732,6 +805,29 @@ function SearchResultsContent() {
         }}
         onClose={() => setUnlockChoice(null)}
       />
+    </div>
+  )
+}
+
+function PrioritizationBadge({ type }: { type: "N" | "S" }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: -12,
+        right: 10,
+        zIndex: 3,
+        padding: "4px 12px",
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 0.3,
+        color: "white",
+        background: type === "S" ? "linear-gradient(135deg, #EC4899, #7C3AED)" : "var(--color-primary)",
+        boxShadow: "0 6px 18px rgba(124, 58, 237, 0.28)",
+      }}
+    >
+      {type}-Prioritized
     </div>
   )
 }

@@ -101,6 +101,7 @@ export interface Search {
   personality_types: string[]
   tagged_address: TaggedAddress | null
   looking_for: string | null
+  looking_for_gender: Gender | null
   qualities: string[]
   hobbies: string[]
   new_cards_count: number

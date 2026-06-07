@@ -23,6 +23,7 @@ interface PersonalityCardProps {
   showTaggedLocation?: boolean
   isRead?: boolean
   fullscreen?: boolean
+  isOwnInSearch?: boolean
 }
 
 export function PersonalityCard({
@@ -41,6 +42,7 @@ export function PersonalityCard({
   showTaggedLocation,
   isRead,
   fullscreen = false,
+  isOwnInSearch = false,
 }: PersonalityCardProps) {
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
   const isSaved = interactions.some((i) => i.card_id === card.id && i.type === "save")
@@ -389,17 +391,30 @@ export function PersonalityCard({
           >
             <Share2 size={18} />
           </button>
-          <button
-            onClick={onChat}
-            style={{
-              marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
-              padding: "8px 16px", borderRadius: 20,
-              background: "var(--color-primary)", color: "white",
-              border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
-            }}
-          >
-            <MessageCircle size={14} /> Chat
-          </button>
+          {isOwnInSearch ? (
+            <span
+              style={{
+                marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
+                padding: "8px 16px", borderRadius: 20,
+                background: "var(--color-primary-bg)", color: "var(--color-primary)",
+                border: "1px solid var(--color-border)", fontSize: 13, fontWeight: 700,
+              }}
+            >
+              You
+            </span>
+          ) : (
+            <button
+              onClick={onChat}
+              style={{
+                marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
+                padding: "8px 16px", borderRadius: 20,
+                background: "var(--color-primary)", color: "white",
+                border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+              }}
+            >
+              <MessageCircle size={14} /> Chat
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS searches (
   personality_types TEXT[] DEFAULT '{}',
   tagged_address JSONB,
   looking_for TEXT,
+  looking_for_gender TEXT CHECK (looking_for_gender IS NULL OR looking_for_gender IN ('male', 'female', 'other')),
   qualities TEXT[] DEFAULT '{}',
   hobbies TEXT[] DEFAULT '{}',
   new_cards_count INTEGER DEFAULT 0,
