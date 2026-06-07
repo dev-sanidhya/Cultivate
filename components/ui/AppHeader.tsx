@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Bell } from "lucide-react"
+import { Bell, Crown } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
 import { createClient } from "@/lib/supabase/client"
 import { fetchUnreadNotificationCount } from "@/lib/badges"
@@ -134,6 +134,25 @@ export function AppHeader({ profile }: { profile: Profile }) {
         </span>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Link
+            href="/subscriptions"
+            style={{ display: "flex" }}
+            aria-label="Subscriptions and paid features"
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "var(--color-primary-bg)",
+              }}
+            >
+              <Crown size={18} color="var(--color-primary)" />
+            </div>
+          </Link>
           <Link
             href="/notifications"
             onClick={() => setUnreadNotifications(0)}

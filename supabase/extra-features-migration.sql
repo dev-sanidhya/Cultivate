@@ -10,10 +10,12 @@ ALTER TABLE cards
     CHECK (looking_for_gender IS NULL OR looking_for_gender IN ('male', 'female', 'other'));
 
 -- 2. Chat unlocks: gender dimension. Unlock key = (user_id, looking_for_category, target_gender).
+--    card_id becomes optional: unlocks are now category-based, not card-based.
 ALTER TABLE chat_unlocks
   ADD COLUMN IF NOT EXISTS target_gender TEXT
     CHECK (target_gender IS NULL OR target_gender IN ('male', 'female', 'other')),
   ADD COLUMN IF NOT EXISTS expiry_notified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE chat_unlocks ALTER COLUMN card_id DROP NOT NULL;
 
 -- 3. Chats: record the target gender of the gendered category
 ALTER TABLE chats

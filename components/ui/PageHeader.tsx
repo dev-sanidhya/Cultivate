@@ -7,10 +7,11 @@ interface PageHeaderProps {
   title: string
   subtitle?: string
   showBack?: boolean
+  onBack?: () => void
   right?: React.ReactNode
 }
 
-export function PageHeader({ title, subtitle, showBack, right }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, showBack, onBack, right }: PageHeaderProps) {
   const router = useRouter()
 
   return (
@@ -25,7 +26,7 @@ export function PageHeader({ title, subtitle, showBack, right }: PageHeaderProps
     >
       {showBack && (
         <button
-          onClick={() => router.back()}
+          onClick={onBack ?? (() => router.back())}
           className="btn-ghost"
           style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--color-primary-bg)" }}
         >

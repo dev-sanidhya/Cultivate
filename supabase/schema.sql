@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS chat_reads (
 CREATE TABLE IF NOT EXISTS chat_unlocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  card_id UUID REFERENCES cards(id) ON DELETE CASCADE,
   looking_for_category TEXT NOT NULL,
   target_gender TEXT CHECK (target_gender IS NULL OR target_gender IN ('male', 'female', 'other')),
   expires_at TIMESTAMPTZ NOT NULL,
