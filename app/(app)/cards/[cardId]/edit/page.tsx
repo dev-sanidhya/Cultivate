@@ -18,6 +18,7 @@ interface CardFormData {
   personality_types: string[]
   tagged_address: import("@/types").TaggedAddress | null
   looking_for: string
+  looking_for_gender: Gender | null
   qualities: string[]
   hobbies: string[]
   note: string
@@ -35,6 +36,7 @@ export default function EditCardPage() {
   const [penaltyPaidAt, setPenaltyPaidAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
+  const [hasChats, setHasChats] = useState(false)
   const [noteViolation, setNoteViolation] = useState<{
     open: boolean
     reason: string
@@ -58,6 +60,14 @@ export default function EditCardPage() {
       ])
 
       if (!cardData) { router.push("/cards"); return }
+
+      // "Looking For" is locked once the card has any associated chats.
+      const { data: relatedChats } = await supabase
+        .from("chats")
+        .select("id")
+        .or(`initiator_card_id.eq.${cardData.id},recipient_card_id.eq.${cardData.id}`)
+        .limit(1)
+      setHasChats((relatedChats?.length ?? 0) > 0)
 
       setCard(cardData)
       if (profile) {
@@ -96,7 +106,8 @@ export default function EditCardPage() {
         age: parseInt(data.age),
         personality_types: data.personality_types,
         tagged_address: data.tagged_address,
-        looking_for: card?.chat_enabled ? card.looking_for : data.looking_for,
+        looking_for: hasChats ? card!.looking_for : data.looking_for,
+        looking_for_gender: hasChats ? card!.looking_for_gender : data.looking_for_gender,
         qualities: data.qualities,
         hobbies: data.hobbies,
         note: data.note || null,
@@ -196,7 +207,7 @@ export default function EditCardPage() {
         onConfirm={() => setNoteViolation((prev) => (prev ? { ...prev, open: false } : prev))}
         onClose={() => setNoteViolation((prev) => (prev ? { ...prev, open: false } : prev))}
       />
-      {card.chat_enabled && (
+      {hasChats && (
         <div style={{
           background: "var(--color-warning-bg)",
           border: "1px solid var(--color-warning)",
@@ -206,7 +217,7 @@ export default function EditCardPage() {
           fontSize: 13,
           color: "#92400E",
         }}>
-          The <strong>Looking For</strong> field is locked because chat is active on this card.
+          The <strong>Looking For</strong> field is locked because this card has active chats.
         </div>
       )}
       <CardForm
@@ -215,6 +226,7 @@ export default function EditCardPage() {
           personality_types: card.personality_types,
           tagged_address: card.tagged_address,
           looking_for: card.looking_for,
+          looking_for_gender: card.looking_for_gender,
           qualities: card.qualities,
           hobbies: card.hobbies,
           note: card.note ?? "",
@@ -227,6 +239,7 @@ export default function EditCardPage() {
         submitLabel="Save Changes"
         loading={loading}
         disabled={isPenaltyBlocked}
+        lookingForLocked={hasChats}
       />
     </div>
   )
