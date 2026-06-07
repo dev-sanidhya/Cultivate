@@ -112,14 +112,23 @@ export function CardForm({
   function addCustomOption(field: string, setterField: MultiSelectField | "looking_for") {
     const value = customInputs[field]?.trim()
     if (!value) return
+
+    // A value that already exists as an approved option (even if hidden) can be entered
+    // directly without creating a new verification request.
+    const approved = fieldOptions[field]?.find((o) => o.value.toLowerCase() === value.toLowerCase())
+    const finalValue = approved?.value ?? value
+
     if (setterField === "looking_for") {
-      selectLookingFor(value)
+      selectLookingFor(finalValue)
     } else {
-      toggleMultiSelect(setterField, value)
+      toggleMultiSelect(setterField, finalValue)
     }
-    setPendingCustomOptions((prev) => [...prev, { field, value }])
+
+    if (!approved) {
+      setPendingCustomOptions((prev) => [...prev, { field, value: finalValue }])
+      toast.info("Custom option submitted for review")
+    }
     setCustomInputs((prev) => ({ ...prev, [field]: "" }))
-    toast.info("Custom option submitted for review")
   }
 
   function buildTaggedAddress(): TaggedAddress | null {
@@ -204,7 +213,7 @@ export function CardForm({
   }
 
   const getOptions = (field: string) =>
-    fieldOptions[field]?.map((o) => o.value) ?? []
+    fieldOptions[field]?.filter((o) => !o.is_hidden).map((o) => o.value) ?? []
 
   function getDisplayOptions(field: string, selectedValues: string[] | string) {
     const baseOptions = getOptions(field)

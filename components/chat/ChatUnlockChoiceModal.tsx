@@ -113,7 +113,7 @@ export function ChatUnlockChoiceModal({
               Looking for: {newCardLabel}
             </div>
             <p style={{ margin: 0, fontSize: 14 }}>
-              Price: <strong>₹{price}</strong> · Unlock period: <strong>{durationDays} days</strong>
+              Price: <strong>₹{price / 100}</strong> · Unlock period: <strong>{durationDays} days</strong>
             </p>
           </div>
         </div>
@@ -133,7 +133,7 @@ export function ChatUnlockChoiceModal({
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? "Unlocking..." : `Unlock chat directly (₹${price})`}
+            {loading ? "Unlocking..." : `Unlock chat directly (₹${price / 100})`}
           </button>
           <button
             onClick={onClose}

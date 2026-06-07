@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Save } from "lucide-react"
-import type { ChatPricing, FieldOption } from "@/types"
+import { Save, Plus, Trash2 } from "lucide-react"
+import type { ChatPricing, FieldOption, PrioritizationPlan, PrioritizationType } from "@/types"
 
 const PLATFORM_KEYS = [
   { key: "support_email", label: "Support Email" },
@@ -19,6 +19,7 @@ export default function AdminConfigPage() {
   const [configs, setConfigs] = useState<Record<string, string>>({})
   const [pricing, setPricing] = useState<ChatPricing[]>([])
   const [verifiedCategories, setVerifiedCategories] = useState<string[]>([])
+  const [plans, setPlans] = useState<PrioritizationPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -56,7 +57,41 @@ export default function AdminConfigPage() {
     const freshPricing = await supabase.from("chat_pricing").select("*")
     setPricing((freshPricing.data ?? []) as ChatPricing[])
     setVerifiedCategories(verifiedLookingFor)
+
+    const { data: planData } = await supabase
+      .from("prioritization_plans")
+      .select("*")
+      .order("plan_type")
+      .order("duration_days")
+    setPlans((planData ?? []) as PrioritizationPlan[])
+
     setLoading(false)
+  }
+
+  async function addPlan(planType: PrioritizationType) {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from("prioritization_plans")
+      .insert({ plan_type: planType, duration_days: 30, price: 0 })
+      .select("*")
+      .single()
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+    setPlans((prev) => [...prev, data as PrioritizationPlan])
+  }
+
+  async function updatePlan(id: string, field: "duration_days" | "price", value: number) {
+    const supabase = createClient()
+    await supabase.from("prioritization_plans").update({ [field]: value }).eq("id", id)
+    setPlans((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)))
+  }
+
+  async function deletePlan(id: string) {
+    const supabase = createClient()
+    await supabase.from("prioritization_plans").delete().eq("id", id)
+    setPlans((prev) => prev.filter((p) => p.id !== id))
   }
 
   useEffect(() => {
@@ -128,7 +163,7 @@ export default function AdminConfigPage() {
             </tr>
           </thead>
           <tbody>
-            {pricing.map((p) => (
+            {pricing.filter((p) => verifiedCategories.includes(p.looking_for_category)).map((p) => (
               <tr key={p.id} style={{ borderTop: "1px solid var(--color-border-light)" }}>
                 <td style={{ padding: "10px 12px", fontSize: 14, fontWeight: 600, color: "var(--color-text)" }}>
                   {p.looking_for_category}
@@ -164,6 +199,72 @@ export default function AdminConfigPage() {
         </table>
         <p style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 12 }}>Set price to 0 for free. Price is in rupees.</p>
       </div>
+
+      {/* Card Prioritization Plans */}
+      {(["N", "S"] as PrioritizationType[]).map((planType) => (
+        <div key={planType} className="card" style={{ padding: "24px", maxWidth: 700, marginTop: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)" }}>
+              {planType}-Prioritization Plans
+            </h2>
+            <button
+              onClick={() => addPlan(planType)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+            >
+              <Plus size={15} /> Add Plan
+            </button>
+          </div>
+
+          {plans.filter((p) => p.plan_type === planType).length === 0 ? (
+            <p style={{ fontSize: 13, color: "var(--color-text-muted)" }}>No plans yet.</p>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "var(--color-primary-bg)" }}>
+                  {["Duration (days)", "Price (₹)", ""].map((h) => (
+                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {plans.filter((p) => p.plan_type === planType).map((plan) => (
+                  <tr key={plan.id} style={{ borderTop: "1px solid var(--color-border-light)" }}>
+                    <td style={{ padding: "10px 12px" }}>
+                      <input
+                        type="number"
+                        className="input"
+                        value={plan.duration_days}
+                        onChange={(e) => updatePlan(plan.id, "duration_days", parseInt(e.target.value) || 0)}
+                        style={{ maxWidth: 100 }}
+                        min={1}
+                      />
+                    </td>
+                    <td style={{ padding: "10px 12px" }}>
+                      <input
+                        type="number"
+                        className="input"
+                        value={plan.price / 100}
+                        onChange={(e) => updatePlan(plan.id, "price", Math.round((parseFloat(e.target.value) || 0) * 100))}
+                        style={{ maxWidth: 100 }}
+                        min={0}
+                      />
+                    </td>
+                    <td style={{ padding: "10px 12px" }}>
+                      <button
+                        onClick={() => deletePlan(plan.id)}
+                        aria-label="Delete plan"
+                        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--color-error-bg)", color: "var(--color-error)", cursor: "pointer" }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

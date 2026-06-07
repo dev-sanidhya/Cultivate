@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Plus, Trash2, Check, X, Pencil } from "lucide-react"
+import { Plus, Trash2, Check, X, Pencil, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import type { FieldOption, CustomOptionRequest } from "@/types"
 
@@ -51,6 +51,14 @@ export default function AdminFieldsPage() {
     await supabase.from("field_options").delete().eq("id", id)
     setOptions((prev) => prev.filter((o) => o.id !== id))
     toast.success("Option removed")
+  }
+
+  async function toggleHidden(opt: FieldOption) {
+    const supabase = createClient()
+    const nextHidden = !opt.is_hidden
+    await supabase.from("field_options").update({ is_hidden: nextHidden }).eq("id", opt.id)
+    setOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, is_hidden: nextHidden } : o)))
+    toast.success(nextHidden ? "Option hidden" : "Option visible")
   }
 
   async function handleRequest(
@@ -188,11 +196,29 @@ export default function AdminFieldsPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {fieldOptions.map((opt) => (
-              <div key={opt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-border-light)" }}>
-                <span style={{ fontSize: 14, color: "var(--color-text)" }}>{opt.value}</span>
-                <button onClick={() => deleteOption(opt.id)} className="btn-ghost" style={{ padding: 6 }}>
-                  <Trash2 size={14} color="var(--color-error)" />
-                </button>
+              <div key={opt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-border-light)", opacity: opt.is_hidden ? 0.6 : 1 }}>
+                <span style={{ fontSize: 14, color: "var(--color-text)", display: "flex", alignItems: "center", gap: 8 }}>
+                  {opt.value}
+                  {opt.is_hidden && (
+                    <span style={{ fontSize: 11, color: "var(--color-text-muted)", background: "#F3F4F6", padding: "2px 8px", borderRadius: 999 }}>
+                      Hidden
+                    </span>
+                  )}
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <button
+                    onClick={() => toggleHidden(opt)}
+                    className="btn-ghost"
+                    style={{ padding: 6 }}
+                    aria-label={opt.is_hidden ? "Unhide option" : "Hide option"}
+                    title={opt.is_hidden ? "Unhide" : "Hide"}
+                  >
+                    {opt.is_hidden ? <EyeOff size={14} color="var(--color-text-secondary)" /> : <Eye size={14} color="var(--color-text-secondary)" />}
+                  </button>
+                  <button onClick={() => deleteOption(opt.id)} className="btn-ghost" style={{ padding: 6 }} aria-label="Delete option">
+                    <Trash2 size={14} color="var(--color-error)" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

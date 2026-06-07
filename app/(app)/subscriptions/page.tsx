@@ -199,7 +199,7 @@ function UnlockChatsView() {
             >
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text)" }}>{cat.looking_for}</span>
               <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                ₹{cat.price} · {cat.durationDays} days
+                ₹{cat.price / 100} · {cat.durationDays} days
               </span>
             </button>
           )
@@ -242,7 +242,7 @@ function UnlockChatsView() {
             <div style={{ display: "flex", flexDirection: "column", gap: 6, textAlign: "left" }}>
               <Row label="Looking For" value={selected.looking_for} />
               {needsGender && <Row label="Gender" value={gender ? gender[0].toUpperCase() + gender.slice(1) : "-"} />}
-              <Row label="Price" value={`₹${selected.price}`} />
+              <Row label="Price" value={`₹${selected.price / 100}`} />
               <Row label="Unlock period" value={`${selected.durationDays} days`} />
             </div>
           ) : null
@@ -345,7 +345,7 @@ function PrioritizeView({ planType, onDone }: { planType: PrioritizationType; on
                 }}
               >
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{plan.duration_days} days</span>
-                <span style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>₹{plan.price}</span>
+                <span style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>₹{plan.price / 100}</span>
               </button>
             )
           })}
@@ -407,7 +407,7 @@ function PrioritizeView({ planType, onDone }: { planType: PrioritizationType; on
               <Row label="Card" value={`#${selectedCard.card_id}`} />
               <Row label="Looking For" value={cardLabel} />
               <Row label="Duration" value={`${selectedPlan.duration_days} days`} />
-              <Row label="Price" value={`₹${selectedPlan.price}`} />
+              <Row label="Price" value={`₹${selectedPlan.price / 100}`} />
             </div>
           ) : null
         }
