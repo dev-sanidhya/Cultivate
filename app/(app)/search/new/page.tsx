@@ -7,8 +7,11 @@ import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { TaggedAddressFieldGroup } from "@/components/cards/TaggedAddressFieldGroup"
 import { normalizeCardId } from "@/lib/utils/cardId"
-import type { FieldOption, TaggedAddress, TaggedAddressType } from "@/types"
+import { requiresGenderSelection } from "@/lib/lookingFor"
+import type { FieldOption, Gender, TaggedAddress, TaggedAddressType } from "@/types"
 import { Search } from "lucide-react"
+
+const TARGET_GENDERS: Gender[] = ["male", "female", "other"]
 
 function NewSearchContent() {
   const router = useRouter()
@@ -26,11 +29,14 @@ function NewSearchContent() {
   const [age, setAge] = useState("")
   const [gender, setGender] = useState("")
   const [lookingFor, setLookingFor] = useState("")
+  const [lookingForGender, setLookingForGender] = useState<Gender | "">("")
   const [personalityTypes, setPersonalityTypes] = useState<string[]>([])
   const [qualities, setQualities] = useState<string[]>([])
   const [hobbies, setHobbies] = useState<string[]>([])
   const [addressType, setAddressType] = useState<TaggedAddressType | null>(null)
   const [addressFields, setAddressFields] = useState<Record<string, string>>({})
+  const [customInputs, setCustomInputs] = useState<Record<string, string>>({})
+  const [customOptions, setCustomOptions] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
     async function load() {
@@ -61,6 +67,7 @@ function NewSearchContent() {
           setAge(existingSearch.age?.toString() ?? "")
           setGender(existingSearch.gender ?? "")
           setLookingFor(existingSearch.looking_for ?? "")
+          setLookingForGender(existingSearch.looking_for_gender ?? "")
           setPersonalityTypes(existingSearch.personality_types ?? [])
           setQualities(existingSearch.qualities ?? [])
           setHobbies(existingSearch.hobbies ?? [])
@@ -84,6 +91,23 @@ function NewSearchContent() {
     const getters = { personality_types: personalityTypes, qualities: qualities, hobbies: hobbies }
     const current = getters[field]
     setters[field](current.includes(value) ? current.filter((v) => v !== value) : [...current, value])
+  }
+
+  function selectLookingFor(value: string) {
+    setLookingFor(value)
+    if (!requiresGenderSelection(value)) setLookingForGender("")
+  }
+
+  function addCustom(field: "looking_for" | "personality_types" | "qualities" | "hobbies") {
+    const value = customInputs[field]?.trim()
+    if (!value) return
+    setCustomOptions((prev) => ({ ...prev, [field]: [...(prev[field] ?? []), value] }))
+    if (field === "looking_for") {
+      selectLookingFor(value)
+    } else {
+      toggleMulti(field, value)
+    }
+    setCustomInputs((prev) => ({ ...prev, [field]: "" }))
   }
 
   function buildTaggedAddress(): TaggedAddress | null {
@@ -144,6 +168,7 @@ function NewSearchContent() {
             age: age ? parseInt(age) : null,
             gender: gender || null,
             looking_for: lookingFor || null,
+            looking_for_gender: requiresGenderSelection(lookingFor) ? (lookingForGender || null) : null,
             personality_types: personalityTypes,
             qualities,
             hobbies,
@@ -255,7 +280,11 @@ function NewSearchContent() {
     }
   }
 
-  const getOpts = (field: string) => fieldOptions[field]?.map((o) => o.value) ?? []
+  const getOpts = (field: string) =>
+    fieldOptions[field]?.filter((o) => !o.is_hidden).map((o) => o.value) ?? []
+
+  const getDisplayOpts = (field: string, selected: string[]) =>
+    Array.from(new Set([...getOpts(field), ...(customOptions[field] ?? []), ...selected.filter(Boolean)]))
 
   return (
     <div className="page-container" style={{ paddingTop: 20 }}>
@@ -321,25 +350,47 @@ function NewSearchContent() {
           <div>
             <label className="label">Looking For</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <button className={`tag ${!lookingFor ? "selected" : ""}`} onClick={() => setLookingFor("")}>Any</button>
-              {getOpts("looking_for").map((opt) => (
-                <button key={opt} className={`tag ${lookingFor === opt ? "selected" : ""}`} onClick={() => setLookingFor(lookingFor === opt ? "" : opt)}>
+              <button className={`tag ${!lookingFor ? "selected" : ""}`} onClick={() => selectLookingFor("")}>Any</button>
+              {getDisplayOpts("looking_for", [lookingFor]).map((opt) => (
+                <button key={opt} className={`tag ${lookingFor === opt ? "selected" : ""}`} onClick={() => selectLookingFor(lookingFor === opt ? "" : opt)}>
                   {opt}
                 </button>
               ))}
             </div>
+            <CustomOptionInput field="looking_for" value={customInputs.looking_for ?? ""} onChange={(v) => setCustomInputs((p) => ({ ...p, looking_for: v }))} onAdd={() => addCustom("looking_for")} />
           </div>
+
+          {/* Looking For gender */}
+          {requiresGenderSelection(lookingFor) && (
+            <div>
+              <label className="label">Looking For - Gender</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className={`tag ${!lookingForGender ? "selected" : ""}`} onClick={() => setLookingForGender("")} style={{ flex: 1, justifyContent: "center" }}>Any</button>
+                {TARGET_GENDERS.map((g) => (
+                  <button
+                    key={g}
+                    className={`tag ${lookingForGender === g ? "selected" : ""}`}
+                    onClick={() => setLookingForGender(lookingForGender === g ? "" : g)}
+                    style={{ textTransform: "capitalize", flex: 1, justifyContent: "center" }}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Personality Type */}
           <div>
             <label className="label">Personality Type</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {getOpts("personality_types").map((opt) => (
+              {getDisplayOpts("personality_types", personalityTypes).map((opt) => (
                 <button key={opt} className={`tag ${personalityTypes.includes(opt) ? "selected" : ""}`} onClick={() => toggleMulti("personality_types", opt)}>
                   {opt}
                 </button>
               ))}
             </div>
+            <CustomOptionInput field="personality_types" value={customInputs.personality_types ?? ""} onChange={(v) => setCustomInputs((p) => ({ ...p, personality_types: v }))} onAdd={() => addCustom("personality_types")} />
           </div>
 
           {/* Tagged Address */}
@@ -367,20 +418,22 @@ function NewSearchContent() {
           <div>
             <label className="label">Qualities</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {getOpts("qualities").map((opt) => (
+              {getDisplayOpts("qualities", qualities).map((opt) => (
                 <button key={opt} className={`tag ${qualities.includes(opt) ? "selected" : ""}`} onClick={() => toggleMulti("qualities", opt)}>{opt}</button>
               ))}
             </div>
+            <CustomOptionInput field="qualities" value={customInputs.qualities ?? ""} onChange={(v) => setCustomInputs((p) => ({ ...p, qualities: v }))} onAdd={() => addCustom("qualities")} />
           </div>
 
           {/* Hobbies */}
           <div>
             <label className="label">Hobbies</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {getOpts("hobbies").map((opt) => (
+              {getDisplayOpts("hobbies", hobbies).map((opt) => (
                 <button key={opt} className={`tag ${hobbies.includes(opt) ? "selected" : ""}`} onClick={() => toggleMulti("hobbies", opt)}>{opt}</button>
               ))}
             </div>
+            <CustomOptionInput field="hobbies" value={customInputs.hobbies ?? ""} onChange={(v) => setCustomInputs((p) => ({ ...p, hobbies: v }))} onAdd={() => addCustom("hobbies")} />
           </div>
         </div>
       )}
@@ -390,6 +443,36 @@ function NewSearchContent() {
           {loading ? "Searching..." : <><Search size={16} /> Search</>}
         </button>
       </div>
+    </div>
+  )
+}
+
+function CustomOptionInput({
+  field,
+  value,
+  onChange,
+  onAdd,
+}: {
+  field: string
+  value: string
+  onChange: (value: string) => void
+  onAdd: () => void
+}) {
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <input
+        className="input"
+        placeholder={`Add your own ${field.replace(/_/g, " ")}...`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && onAdd()}
+      />
+      <button
+        onClick={onAdd}
+        style={{ padding: "10px 16px", background: "var(--color-primary-bg)", border: "1px solid var(--color-border)", borderRadius: 10, color: "var(--color-primary)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontSize: 13 }}
+      >
+        Add
+      </button>
     </div>
   )
 }

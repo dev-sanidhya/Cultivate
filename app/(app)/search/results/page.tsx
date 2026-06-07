@@ -65,8 +65,17 @@ function SearchResultsContent() {
   const [shareCounterpart, setShareCounterpart] = useState<Counterpart | null>(null)
   const [unlockChoice, setUnlockChoice] = useState<UnlockChoiceState | null>(null)
   const [unlockLoading, setUnlockLoading] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null)
   const viewedCardIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)")
+    const update = () => setIsMobile(media.matches)
+    update()
+    media.addEventListener("change", update)
+    return () => media.removeEventListener("change", update)
+  }, [])
 
   async function loadResults() {
     try {
@@ -543,6 +552,23 @@ function SearchResultsContent() {
     }
   }
 
+  function handleNormalSwipeEnd(event: ReactPointerEvent<HTMLDivElement>) {
+    const start = swipeStartRef.current
+    swipeStartRef.current = null
+    if (!start) return
+
+    const dx = event.clientX - start.x
+    const dy = event.clientY - start.y
+    const isHorizontalSwipe = Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.2
+    if (!isHorizontalSwipe) return
+
+    if (dx < 0) {
+      setActiveCardIndex(Math.min(filteredCards.length - 1, activeCurrentIndex + 1))
+    } else {
+      setActiveCardIndex(Math.max(0, activeCurrentIndex - 1))
+    }
+  }
+
   // Track view counts
   useEffect(() => {
     const card = filteredCards[currentIndex]
@@ -653,7 +679,12 @@ function SearchResultsContent() {
       ) : (
         <div>
           {/* Card viewer */}
-          <div style={{ position: "relative" }}>
+          <div
+            style={{ position: "relative", touchAction: isMobile ? "pan-y" : undefined }}
+            onPointerDown={isMobile ? handleSwipeStart : undefined}
+            onPointerUp={isMobile ? handleNormalSwipeEnd : undefined}
+            onPointerCancel={isMobile ? () => { swipeStartRef.current = null } : undefined}
+          >
             {card && priorityByCard[card.id] && <PrioritizationBadge type={priorityByCard[card.id].plan_type} />}
             {card && (
               <PersonalityCard
@@ -672,8 +703,8 @@ function SearchResultsContent() {
             )}
           </div>
 
-          {/* Navigation */}
-          {filteredCards.length > 1 && (
+          {/* Navigation - arrows on desktop only; mobile uses swipe */}
+          {filteredCards.length > 1 && !isMobile && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, marginTop: 20 }}>
               <button
                 onClick={() => setActiveCardIndex(Math.max(0, activeCurrentIndex - 1))}
@@ -706,6 +737,12 @@ function SearchResultsContent() {
               >
                 <ChevronRight size={20} />
               </button>
+            </div>
+          )}
+
+          {filteredCards.length > 1 && isMobile && (
+            <div style={{ textAlign: "center", marginTop: 14, fontSize: 13, color: "var(--color-text-secondary)", fontWeight: 600 }}>
+              {activeCurrentIndex + 1} / {filteredCards.length}
             </div>
           )}
         </div>
