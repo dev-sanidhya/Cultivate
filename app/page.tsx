@@ -11,6 +11,7 @@ const demoCard: Card = {
   personality_types: ["INTJ"],
   tagged_address: null,
   looking_for: "Co-founder",
+  looking_for_gender: null,
   qualities: ["Funny", "Pragmatic"],
   hobbies: ["Coding", "Travelling"],
   note: "acha",

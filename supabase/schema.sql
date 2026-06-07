@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS cards (
   personality_types TEXT[] DEFAULT '{}',
   tagged_address JSONB,
   looking_for TEXT NOT NULL,
+  looking_for_gender TEXT CHECK (looking_for_gender IS NULL OR looking_for_gender IN ('male', 'female', 'other')),
   qualities TEXT[] DEFAULT '{}',
   hobbies TEXT[] DEFAULT '{}',
   note TEXT,
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS field_options (
   field_name TEXT NOT NULL,
   value TEXT NOT NULL,
   is_approved BOOLEAN DEFAULT TRUE,
+  is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
   submitted_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(field_name, value)
@@ -142,6 +144,7 @@ CREATE TABLE IF NOT EXISTS chats (
   initiator_card_id UUID REFERENCES cards(id),
   recipient_card_id UUID REFERENCES cards(id),
   looking_for_category TEXT NOT NULL,
+  target_gender TEXT CHECK (target_gender IS NULL OR target_gender IN ('male', 'female', 'other')),
   last_message_at TIMESTAMPTZ,
   last_activity_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -174,7 +177,9 @@ CREATE TABLE IF NOT EXISTS chat_unlocks (
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
   looking_for_category TEXT NOT NULL,
+  target_gender TEXT CHECK (target_gender IS NULL OR target_gender IN ('male', 'female', 'other')),
   expires_at TIMESTAMPTZ NOT NULL,
+  expiry_notified BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -388,6 +393,47 @@ CREATE TABLE IF NOT EXISTS chat_pricing (
   duration_days INTEGER NOT NULL DEFAULT 30
 );
 
+-- Prioritization plans (admin-managed, separate sets for N and S)
+CREATE TABLE IF NOT EXISTS prioritization_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_type TEXT NOT NULL CHECK (plan_type IN ('N', 'S')),
+  duration_days INTEGER NOT NULL,
+  price INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Card prioritizations (purchased prioritization windows)
+CREATE TABLE IF NOT EXISTS card_prioritizations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  plan_type TEXT NOT NULL CHECK (plan_type IN ('N', 'S')),
+  plan_id UUID REFERENCES prioritization_plans(id),
+  prioritized_view_count INTEGER NOT NULL DEFAULT 0,
+  starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  expiry_notified BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS card_prioritizations_card_idx ON card_prioritizations(card_id);
+CREATE INDEX IF NOT EXISTS card_prioritizations_expires_idx ON card_prioritizations(expires_at);
+
+-- View tracking: bump card view + any active prioritization counter together.
+CREATE OR REPLACE FUNCTION record_card_view(p_card_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE cards
+    SET view_count = GREATEST(COALESCE(view_count, 0) + 1, 0), updated_at = NOW()
+    WHERE id = p_card_id;
+
+  UPDATE card_prioritizations
+    SET prioritized_view_count = prioritized_view_count + 1
+    WHERE card_id = p_card_id AND expires_at > NOW();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION record_card_view(UUID) TO anon, authenticated;
+
 -- Visit logs
 CREATE TABLE IF NOT EXISTS visit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -499,6 +545,8 @@ ALTER TABLE contact_detail_warnings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_pricing ENABLE ROW LEVEL SECURITY;
+ALTER TABLE prioritization_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE card_prioritizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE visit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
@@ -572,6 +620,15 @@ CREATE POLICY "platform_config_write" ON platform_config FOR ALL USING (true);
 CREATE POLICY "chat_pricing_read" ON chat_pricing FOR SELECT USING (true);
 CREATE POLICY "chat_pricing_write" ON chat_pricing FOR ALL USING (true);
 
+-- Prioritization plans: everyone can read, admin manages via service role
+CREATE POLICY "prioritization_plans_read" ON prioritization_plans FOR SELECT USING (true);
+CREATE POLICY "prioritization_plans_write" ON prioritization_plans FOR ALL USING (true);
+
+-- Card prioritizations: read all (search ordering + badges), users manage own
+CREATE POLICY "card_prioritizations_read" ON card_prioritizations FOR SELECT USING (true);
+CREATE POLICY "card_prioritizations_own" ON card_prioritizations FOR ALL
+  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
 -- Chat images: public read, authenticated uploads to own folder
 DROP POLICY IF EXISTS "chat_images_read" ON storage.objects;
 CREATE POLICY "chat_images_read" ON storage.objects FOR SELECT USING (bucket_id = 'chat-images');
@@ -598,8 +655,10 @@ INSERT INTO field_options (field_name, value) VALUES
   ('looking_for', 'Travel Partner'),
   ('looking_for', 'Gaming Partner'),
   ('looking_for', 'Co-founder'),
-  ('looking_for', 'Female Best Friend'),
-  ('looking_for', 'Male Best Friend'),
+  ('looking_for', 'Best Friend'),
+  ('looking_for', 'Sugar Daddy'),
+  ('looking_for', 'Sugar Mommy'),
+  ('looking_for', 'Sugar Baby'),
   ('looking_for', 'Study Partner'),
   ('looking_for', 'Gym Partner'),
   ('looking_for', 'Movie Partner'),

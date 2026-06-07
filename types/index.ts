@@ -54,6 +54,7 @@ export interface Card {
   personality_types: string[]
   tagged_address: TaggedAddress | null
   looking_for: string
+  looking_for_gender: Gender | null
   qualities: string[]
   hobbies: string[]
   note: string | null
@@ -74,6 +75,7 @@ export interface FieldOption {
   field_name: string
   value: string
   is_approved: boolean
+  is_hidden: boolean
   submitted_by: string | null
   created_at: string
 }
@@ -121,6 +123,7 @@ export interface Chat {
   initiator_card_id: string
   recipient_card_id: string
   looking_for_category: string
+  target_gender: Gender | null
   last_message_at: string | null
   last_activity_at: string
   created_at: string
@@ -145,7 +148,9 @@ export interface ChatUnlock {
   user_id: string
   card_id: string
   looking_for_category: string
+  target_gender: Gender | null
   expires_at: string
+  expiry_notified: boolean
   created_at: string
 }
 
@@ -161,7 +166,14 @@ export interface Notification {
   id: string
   user_id: string
   message: string
-  type: "custom_option_rejected" | "custom_option_approved" | "admin_message" | "chat" | "general"
+  type:
+    | "custom_option_rejected"
+    | "custom_option_approved"
+    | "admin_message"
+    | "chat"
+    | "prioritization_expired"
+    | "chat_unlock_expired"
+    | "general"
   metadata: Record<string, unknown> | null
   is_read: boolean
   created_at: string
@@ -197,6 +209,29 @@ export interface ChatPricing {
   looking_for_category: string
   price: number
   duration_days: number
+}
+
+export type PrioritizationType = "N" | "S"
+
+export interface PrioritizationPlan {
+  id: string
+  plan_type: PrioritizationType
+  duration_days: number
+  price: number
+  created_at: string
+}
+
+export interface CardPrioritization {
+  id: string
+  card_id: string
+  user_id: string
+  plan_type: PrioritizationType
+  plan_id: string | null
+  prioritized_view_count: number
+  starts_at: string
+  expires_at: string
+  expiry_notified: boolean
+  created_at: string
 }
 
 export type CardField = "looking_for" | "personality_types" | "qualities" | "hobbies"
