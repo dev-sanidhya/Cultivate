@@ -131,16 +131,25 @@ Eligibility (§3): viewer.profile.gender must equal counterpart.requiredViewerGe
 
 ## Build phases (each its own commit, single push at end)
 
-- [ ] P1  DB migration + schema.sql + types + `lib/lookingFor.ts`
-- [ ] P2  Gender sub-field in CardForm + display formatting
-- [ ] P3  Chat eligibility (target_gender) + visible-but-blocked message
-- [ ] P4  Direct unlock + auto-card creation + special-pair counterpart
-- [ ] P5  Edit-lock of looking_for when card has chats
-- [ ] P6  Subscription page + header button + prioritization flows
-- [ ] P7  Admin: prioritization plans + chat-pricing filter + field hide/unhide
-- [ ] P8  Search: ordering + own cards "You" + badges + S-prioritize injection
-- [ ] P9  Expiry notifications (lazy)
-- [ ] P10 Mobile swipe nav (normal view) + custom options in filter search
+- [x] P1  DB migration + schema.sql + types + `lib/lookingFor.ts`
+- [x] P2  Gender sub-field in CardForm + display formatting
+- [x] P3  Chat eligibility (target_gender) + visible-but-blocked message
+- [x] P4  Direct unlock + auto-card creation + special-pair counterpart (`lib/chatFlow.ts`, `ChatUnlockChoiceModal`)
+- [x] P5  Edit-lock of looking_for when card has chats
+- [x] P6  Subscription page (`/subscriptions`) + header button + prioritization flows
+- [x] P7  Admin: prioritization plans + chat-pricing filter + field hide/unhide
+- [x] P8  Search: ordering + own cards "You" + badges + S-prioritize injection
+- [x] P9  Expiry notifications (lazy, `ExpiryNotifier` + `lib/expiryNotifications.ts`)
+- [x] P10 Mobile swipe nav (normal view) + custom options + gender filter in filter search
+
+## OUTSTANDING (must do before features work end-to-end)
+
+- **Apply the migration to the live DB.** The Cultivate Supabase project (`ngijqnojxrxdlsobxrlw`) is currently
+  PAUSED (INACTIVE). `supabase/extra-features-migration.sql` must be applied once it is restored, or every new
+  column/table no-ops. Restore the project, then run that file in the SQL editor (or via MCP `apply_migration`).
+- Admin must create prioritization plans (N and S) under Admin > Platform Configuration before the prioritize
+  flow shows any plans.
+- Chat unlock pricing for the new Sugar* categories is seeded at 0 (free) until set in Admin > Chat Pricing.
 
 ## Risks
 - Live Supabase DB lags `schema.sql` - apply migration to live DB via MCP.
@@ -149,4 +158,5 @@ Eligibility (§3): viewer.profile.gender must equal counterpart.requiredViewerGe
 - Scoping: special-pair complementary matching applied to contact/unlock/auto-card path; normal search filter kept exact-match for now (flagged).
 
 ## Progress log
-- P1 foundation: in progress.
+- All 10 phases implemented, typecheck + `next build` clean. Committed in small units.
+- Pending: apply migration to the (currently paused) live Supabase project.
