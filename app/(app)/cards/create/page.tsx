@@ -10,6 +10,7 @@ import { generateCardId } from "@/lib/utils/cardId"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { getErrorMessage } from "@/lib/utils/errors"
+import { shouldEnableChatForCard } from "@/lib/chatUnlocks"
 import type { FieldOption, Gender } from "@/types"
 
 export default function CreateCardPage() {
@@ -89,6 +90,11 @@ export default function CreateCardPage() {
         attempts++
       }
 
+      const chatEnabled = await shouldEnableChatForCard(supabase, user!.id, {
+        looking_for: data.looking_for,
+        looking_for_gender: data.looking_for_gender,
+      })
+
       const { data: card, error } = await supabase.from("cards").insert({
         card_id: cardId,
         user_id: user!.id,
@@ -102,6 +108,7 @@ export default function CreateCardPage() {
         hobbies: data.hobbies,
         note: data.note || null,
         is_public: true,
+        chat_enabled: chatEnabled,
       }).select().single()
 
       if (error) throw error

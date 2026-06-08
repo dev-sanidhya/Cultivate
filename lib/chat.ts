@@ -1,6 +1,7 @@
 import type { Card, Gender } from "@/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { getConversationBlockStatus } from "@/lib/blocks"
+import { hasActiveUnlock } from "@/lib/chatUnlocks"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
 
@@ -27,20 +28,38 @@ export async function fetchEligibleShareCards(
   lookingFor: string,
   targetGender: Gender | null = null,
 ) {
+  const activeUnlock = await hasActiveUnlock(supabase, userId, lookingFor, targetGender)
+
   let query = supabase
     .from("cards")
     .select("*")
     .eq("user_id", userId)
     .eq("looking_for", lookingFor)
-    .eq("chat_enabled", true)
     .eq("is_closed", false)
     .eq("is_public", true)
+
+  if (!activeUnlock) {
+    query = query.eq("chat_enabled", true)
+  }
 
   query = targetGender == null ? query.is("looking_for_gender", null) : query.eq("looking_for_gender", targetGender)
 
   const { data, error } = await query.order("created_at", { ascending: false })
 
   if (error) throw error
+
+  if (activeUnlock && (data ?? []).some((card) => !card.chat_enabled)) {
+    let repairQuery = supabase
+      .from("cards")
+      .update({ chat_enabled: true })
+      .eq("user_id", userId)
+      .eq("looking_for", lookingFor)
+      .eq("is_closed", false)
+
+    repairQuery = targetGender == null ? repairQuery.is("looking_for_gender", null) : repairQuery.eq("looking_for_gender", targetGender)
+    await repairQuery
+  }
+
   return (data ?? []) as Card[]
 }
 

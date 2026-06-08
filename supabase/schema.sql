@@ -184,6 +184,32 @@ CREATE TABLE IF NOT EXISTS chat_unlocks (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE OR REPLACE FUNCTION apply_active_chat_unlock_to_card()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.chat_enabled := EXISTS (
+    SELECT 1
+    FROM chat_unlocks cu
+    WHERE cu.user_id = NEW.user_id
+      AND cu.looking_for_category = NEW.looking_for
+      AND (
+        (cu.target_gender IS NULL AND NEW.looking_for_gender IS NULL)
+        OR cu.target_gender = NEW.looking_for_gender
+      )
+      AND cu.expires_at > NOW()
+  ) AND COALESCE(NEW.is_closed, FALSE) = FALSE;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS apply_active_chat_unlock_to_card_trigger ON cards;
+CREATE TRIGGER apply_active_chat_unlock_to_card_trigger
+  BEFORE INSERT OR UPDATE OF user_id, looking_for, looking_for_gender, is_closed
+  ON cards
+  FOR EACH ROW
+  EXECUTE FUNCTION apply_active_chat_unlock_to_card();
+
 -- Chat image uploads
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('chat-images', 'chat-images', true)

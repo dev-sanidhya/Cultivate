@@ -13,7 +13,7 @@ import { Spinner } from "@/components/ui/Spinner"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
-import { enableChatForCategory } from "@/lib/chatFlow"
+import { enableChatForCategory } from "@/lib/chatUnlocks"
 import type { Card, Profile } from "@/types"
 
 type ChatWithProfiles = {

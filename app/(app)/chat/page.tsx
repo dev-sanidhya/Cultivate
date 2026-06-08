@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/Spinner"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { timeAgo } from "@/lib/utils/format"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
+import { chatUnlockKey } from "@/lib/chatUnlocks"
 import { markChatAsRead } from "@/lib/badges"
 import type { Chat, ChatUnlock, Profile, Card, Message } from "@/types"
 
@@ -88,7 +89,7 @@ export default function ChatPage() {
         .eq("user_id", user.id),
       supabase
         .from("chat_unlocks")
-        .select("looking_for_category, expires_at")
+        .select("looking_for_category, target_gender, expires_at")
         .eq("user_id", user.id)
         .gt("expires_at", new Date().toISOString()),
     ])
@@ -96,8 +97,10 @@ export default function ChatPage() {
     const latestMessageByChat = new Map<string, Message>()
     const unreadCountByChat = new Map<string, number>()
     const lastReadByChat = new Map<string, string | null>()
-    const activeUnlockCategories = new Set(
-      ((unlocksData ?? []) as ChatUnlock[]).map((unlock) => unlock.looking_for_category),
+    const activeUnlockKeys = new Set(
+      ((unlocksData ?? []) as ChatUnlock[]).map((unlock) =>
+        chatUnlockKey(unlock.looking_for_category, unlock.target_gender),
+      ),
     )
 
     for (const read of (readsData ?? []) as { chat_id: string; last_read_at: string | null }[]) {
@@ -140,7 +143,7 @@ export default function ChatPage() {
         theirCard,
         lastMessage: latestMessageByChat.get(chat.id) ?? null,
         unread: unreadCountByChat.get(chat.id) ?? 0,
-        canOpen: activeUnlockCategories.has(chat.looking_for_category),
+        canOpen: activeUnlockKeys.has(chatUnlockKey(chat.looking_for_category, chat.target_gender)),
       })
     }
 

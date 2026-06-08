@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Gender, PrioritizationPlan, PrioritizationType } from "@/types"
-import { enableChatForCategory } from "@/lib/chatFlow"
+import { enableChatForCategory } from "@/lib/chatUnlocks"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
 
