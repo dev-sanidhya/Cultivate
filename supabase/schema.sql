@@ -456,6 +456,14 @@ CREATE INDEX IF NOT EXISTS card_prioritizations_expires_idx ON card_prioritizati
 CREATE OR REPLACE FUNCTION record_card_view(p_card_id UUID)
 RETURNS VOID AS $$
 BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM cards
+    WHERE id = p_card_id AND user_id = auth.uid()
+  ) THEN
+    RETURN;
+  END IF;
+
   UPDATE cards
     SET view_count = GREATEST(COALESCE(view_count, 0) + 1, 0), updated_at = NOW()
     WHERE id = p_card_id;
