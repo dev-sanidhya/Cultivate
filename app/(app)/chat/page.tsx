@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/Spinner"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { timeAgo } from "@/lib/utils/format"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
+import { formatLookingFor } from "@/lib/lookingFor"
 import { chatUnlockKey } from "@/lib/chatUnlocks"
 import { markChatAsRead } from "@/lib/badges"
 import type { Chat, ChatUnlock, Profile, Card, Message } from "@/types"
@@ -16,6 +17,7 @@ import type { Chat, ChatUnlock, Profile, Card, Message } from "@/types"
 interface ChatListItem {
   chat: Chat
   otherProfile: Profile
+  myCard: Card | null
   theirCard: Card | null
   lastMessage: Message | null
   unread: number
@@ -124,7 +126,7 @@ export default function ChatPage() {
     const items: ChatListItem[] = []
     for (const chat of chatRows) {
       const otherProfile = ((chat.initiator_id === user.id ? chat.recipient : chat.initiator) ?? null) as Profile | null
-      const { theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
+      const { myCard, theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
 
       items.push({
         chat,
@@ -140,6 +142,7 @@ export default function ChatPage() {
           contact_penalty_paid_at: null,
           created_at: "",
         },
+        myCard,
         theirCard,
         lastMessage: latestMessageByChat.get(chat.id) ?? null,
         unread: unreadCountByChat.get(chat.id) ?? 0,
@@ -233,7 +236,7 @@ export default function ChatPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "0 16px" }}>
-          {chats.map(({ chat, otherProfile, theirCard, lastMessage, unread, canOpen }) => (
+          {chats.map(({ chat, otherProfile, myCard, theirCard, lastMessage, unread, canOpen }) => (
             <div
               key={chat.id}
               role="button"
@@ -325,7 +328,7 @@ export default function ChatPage() {
                       flexShrink: 0,
                     }}
                   >
-                    {theirCard?.looking_for}
+                    {myCard ? formatLookingFor(myCard.looking_for, myCard.looking_for_gender) : ""}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>

@@ -1,6 +1,7 @@
 "use client"
 
 import { Modal } from "@/components/ui/Modal"
+import { formatLookingFor } from "@/lib/lookingFor"
 import type { Card } from "@/types"
 
 interface ChatCardPickerModalProps {
@@ -53,7 +54,7 @@ export function ChatCardPickerModal({
               </span>
             </div>
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-              Looking for: {card.looking_for}
+              Looking for: {formatLookingFor(card.looking_for, card.looking_for_gender)}
             </div>
           </button>
         ))}
