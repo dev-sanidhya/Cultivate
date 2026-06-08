@@ -14,6 +14,13 @@ BEGIN
         OR cu.target_gender = NEW.looking_for_gender
       )
       AND cu.expires_at > NOW()
+      AND EXISTS (
+        SELECT 1
+        FROM field_options fo
+        WHERE fo.field_name = 'looking_for'
+          AND fo.value = NEW.looking_for
+          AND fo.is_approved = TRUE
+      )
   ) AND COALESCE(NEW.is_closed, FALSE) = FALSE;
 
   RETURN NEW;
@@ -40,4 +47,22 @@ WHERE c.is_closed = FALSE
         OR cu.target_gender = c.looking_for_gender
       )
       AND cu.expires_at > NOW()
+      AND EXISTS (
+        SELECT 1
+        FROM field_options fo
+        WHERE fo.field_name = 'looking_for'
+          AND fo.value = c.looking_for
+          AND fo.is_approved = TRUE
+      )
+  );
+
+UPDATE cards c
+SET chat_enabled = FALSE
+WHERE c.chat_enabled = TRUE
+  AND NOT EXISTS (
+    SELECT 1
+    FROM field_options fo
+    WHERE fo.field_name = 'looking_for'
+      AND fo.value = c.looking_for
+      AND fo.is_approved = TRUE
   );

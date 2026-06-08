@@ -13,7 +13,7 @@ import { Spinner } from "@/components/ui/Spinner"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
-import { enableChatForCategory } from "@/lib/chatUnlocks"
+import { enableChatForCategory, isApprovedLookingForCategory } from "@/lib/chatUnlocks"
 import type { Card, Profile } from "@/types"
 
 type ChatWithProfiles = {
@@ -156,6 +156,12 @@ export default function CardsPage() {
       .select("*")
       .eq("looking_for_category", card.looking_for)
       .maybeSingle()
+
+    const isApproved = await isApprovedLookingForCategory(supabase, card.looking_for)
+    if (!isApproved) {
+      toast.error("This Looking For option must be approved before chats can be unlocked.")
+      return
+    }
 
     const duration = pricing?.duration_days ?? 30
 

@@ -1,7 +1,7 @@
 import type { Card, Gender } from "@/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { getConversationBlockStatus } from "@/lib/blocks"
-import { hasActiveUnlock } from "@/lib/chatUnlocks"
+import { hasActiveUnlock, isApprovedLookingForCategory } from "@/lib/chatUnlocks"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
 
@@ -28,6 +28,9 @@ export async function fetchEligibleShareCards(
   lookingFor: string,
   targetGender: Gender | null = null,
 ) {
+  const isApproved = await isApprovedLookingForCategory(supabase, lookingFor)
+  if (!isApproved) return []
+
   const activeUnlock = await hasActiveUnlock(supabase, userId, lookingFor, targetGender)
 
   let query = supabase
@@ -94,6 +97,11 @@ export async function createChatForCardPair(
     targetGender?: Gender | null
   },
 ) {
+  const isApproved = await isApprovedLookingForCategory(supabase, params.myCard.looking_for)
+  if (!isApproved) {
+    throw new Error("This Looking For option must be approved before chats can be unlocked.")
+  }
+
   const blockStatus = await getConversationBlockStatus(supabase, {
     userId: params.userId,
     otherUserId: params.otherUserId,

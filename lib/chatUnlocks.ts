@@ -12,6 +12,22 @@ export function chatUnlockKey(category: string, targetGender: Gender | null) {
   return `${category}::${targetGender ?? "null"}`
 }
 
+/** Whether a "Looking For" category has been approved by admins. */
+export async function isApprovedLookingForCategory(
+  supabase: SupabaseLike,
+  category: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("field_options")
+    .select("id")
+    .eq("field_name", "looking_for")
+    .eq("value", category)
+    .eq("is_approved", true)
+    .limit(1)
+
+  return (data?.length ?? 0) > 0
+}
+
 /** Whether the user holds an active unlock for the given category + target-gender pair. */
 export async function hasActiveUnlock(
   supabase: SupabaseLike,
@@ -19,6 +35,9 @@ export async function hasActiveUnlock(
   category: string,
   targetGender: Gender | null,
 ): Promise<boolean> {
+  const isApproved = await isApprovedLookingForCategory(supabase, category)
+  if (!isApproved) return false
+
   let query = supabase
     .from("chat_unlocks")
     .select("id")
@@ -48,6 +67,9 @@ export async function enableChatForCategory(
   category: string,
   targetGender: Gender | null,
 ) {
+  const isApproved = await isApprovedLookingForCategory(supabase, category)
+  if (!isApproved) return
+
   let query = supabase
     .from("cards")
     .update({ chat_enabled: true })

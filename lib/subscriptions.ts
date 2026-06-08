@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Gender, PrioritizationPlan, PrioritizationType } from "@/types"
-import { enableChatForCategory } from "@/lib/chatUnlocks"
+import { enableChatForCategory, isApprovedLookingForCategory } from "@/lib/chatUnlocks"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
 
@@ -46,6 +46,11 @@ export async function createCategoryUnlock(
   gender: Gender | null,
   durationDays: number,
 ) {
+  const isApproved = await isApprovedLookingForCategory(supabase, category)
+  if (!isApproved) {
+    throw new Error("This Looking For option must be approved before chats can be unlocked.")
+  }
+
   const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()
   await supabase.from("chat_unlocks").insert({
     user_id: userId,

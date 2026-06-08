@@ -263,7 +263,6 @@ function PrioritizeView({ planType, onDone }: { planType: PrioritizationType; on
 
   useEffect(() => {
     const supabase = createClient()
-    setLoading(true)
     void (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()

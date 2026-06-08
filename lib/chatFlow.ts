@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Card, Gender } from "@/types"
 import { getConversationBlockStatus } from "@/lib/blocks"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
-import { enableChatForCategory, hasActiveUnlock } from "@/lib/chatUnlocks"
+import { enableChatForCategory, hasActiveUnlock, isApprovedLookingForCategory } from "@/lib/chatUnlocks"
 import {
   getCounterpart,
   ineligibleContactMessage,
@@ -111,6 +111,14 @@ export async function resolveChatStart(
     return { kind: "blocked", message: "You cannot chat with this user." }
   }
 
+  const isApproved = await isApprovedLookingForCategory(supabase, counterpart.looking_for)
+  if (!isApproved) {
+    return {
+      kind: "blocked",
+      message: "This Looking For option must be approved before chats can be unlocked.",
+    }
+  }
+
   const unlocked = await hasActiveUnlock(supabase, viewer.id, counterpart.looking_for, counterpart.looking_for_gender)
 
   if (!unlocked) {
@@ -158,6 +166,11 @@ export async function completeDirectUnlock(
   counterpart: Counterpart,
   durationDays: number,
 ): Promise<string> {
+  const isApproved = await isApprovedLookingForCategory(supabase, counterpart.looking_for)
+  if (!isApproved) {
+    throw new Error("This Looking For option must be approved before chats can be unlocked.")
+  }
+
   const newCard = await createCounterpartCard(supabase, viewer, counterpart)
 
   const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()

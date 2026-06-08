@@ -197,6 +197,13 @@ BEGIN
         OR cu.target_gender = NEW.looking_for_gender
       )
       AND cu.expires_at > NOW()
+      AND EXISTS (
+        SELECT 1
+        FROM field_options fo
+        WHERE fo.field_name = 'looking_for'
+          AND fo.value = NEW.looking_for
+          AND fo.is_approved = TRUE
+      )
   ) AND COALESCE(NEW.is_closed, FALSE) = FALSE;
 
   RETURN NEW;

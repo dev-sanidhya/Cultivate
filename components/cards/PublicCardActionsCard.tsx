@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
 import { getConversationBlockStatus } from "@/lib/blocks"
 import { adjustCardMetric } from "@/lib/cardMetrics"
+import { hasActiveUnlock } from "@/lib/chatUnlocks"
 import type { Card, CardInteraction } from "@/types"
 
 interface PublicCardActionsCardProps {
@@ -97,20 +98,15 @@ export function PublicCardActionsCard({ card, userId }: PublicCardActionsCardPro
         return
       }
 
-      const { data: unlocks } = await supabase
-        .from("chat_unlocks")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("looking_for_category", card.looking_for)
-        .gt("expires_at", new Date().toISOString())
+      const unlocked = await hasActiveUnlock(supabase, userId, card.looking_for, card.looking_for_gender)
 
-      if (!unlocks?.length) {
+      if (!unlocked) {
         toast.error(`You need an active card with "Looking For: ${card.looking_for}" to chat.`)
         router.push("/cards")
         return
       }
 
-      const eligibleCards = await fetchEligibleShareCards(supabase, userId, card.looking_for)
+      const eligibleCards = await fetchEligibleShareCards(supabase, userId, card.looking_for, card.looking_for_gender)
 
       if (eligibleCards.length === 0) {
         toast.error(`No enabled card found with "Looking For: ${card.looking_for}".`)
