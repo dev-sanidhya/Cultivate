@@ -46,6 +46,7 @@ export function PersonalityCard({
 }: PersonalityCardProps) {
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
   const isSaved = interactions.some((i) => i.card_id === card.id && i.type === "save")
+  const noteText = card.note?.trim() ?? ""
 
   function shareCard() {
     const url = `${window.location.origin}/card/${card.card_id}`
@@ -245,27 +246,31 @@ export function PersonalityCard({
       </div>
 
       {/* Note */}
-      {card.note && (
-        <div
-          style={{
-            background: "var(--color-primary-bg)",
-            borderRadius: 10,
-            padding: "10px 12px",
-            marginBottom: 14,
-            flex: "1 1 auto",
-            minHeight: 0,
-            overflowY: "auto",
-            fontSize: 13,
-            color: "var(--color-text-secondary)",
-            lineHeight: 1.5,
-            borderLeft: "3px solid var(--color-primary-light)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-          }}
-        >
-          {card.note}
-        </div>
-      )}
+      <div
+        style={{
+          background: "var(--color-primary-bg)",
+          borderRadius: 10,
+          padding: "10px 12px",
+          marginBottom: 14,
+          flex: "1 1 auto",
+          minHeight: 0,
+          overflowY: "auto",
+          fontSize: 13,
+          color: "var(--color-text-secondary)",
+          lineHeight: 1.5,
+          borderLeft: "3px solid var(--color-primary-light)",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          display: "flex",
+          alignItems: noteText ? "flex-start" : "center",
+        }}
+      >
+        {noteText ? (
+          noteText
+        ) : (
+          <span style={{ opacity: 0.55, fontStyle: "italic" }}>No note added</span>
+        )}
+      </div>
 
       {/* Action bar */}
       {mode === "own" && (
