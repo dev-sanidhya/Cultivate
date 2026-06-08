@@ -10,9 +10,11 @@ import { Modal } from "@/components/ui/Modal"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
+import { PrioritizationBadge } from "@/components/cards/PrioritizationBadge"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
+import { fetchActivePrioritizationsForCards, type PrioritizationByCard } from "@/lib/cardPrioritizations"
 import { enableChatForCategory, isApprovedLookingForCategory } from "@/lib/chatUnlocks"
 import type { Card, Profile } from "@/types"
 
@@ -34,6 +36,7 @@ export default function CardsPage() {
   const [penaltyAmount, setPenaltyAmount] = useState("0")
   const [penaltyPaidAt, setPenaltyPaidAt] = useState<string | null>(null)
   const [penaltyModalOpen, setPenaltyModalOpen] = useState(false)
+  const [priorityByCard, setPriorityByCard] = useState<PrioritizationByCard>({})
 
   useEffect(() => {
     loadCards()
@@ -77,6 +80,10 @@ export default function CardsPage() {
     }
 
     const typedCards = (cardData ?? []) as Card[]
+    const activePrioritizations = await fetchActivePrioritizationsForCards(
+      supabase,
+      typedCards.map((card) => card.id),
+    )
 
     setCards(typedCards.map((card: Card) => {
       const metrics = metricsByCardId.get(card.id)
@@ -88,6 +95,7 @@ export default function CardsPage() {
         save_count: metrics.save_count ?? card.save_count,
       }
     }))
+    setPriorityByCard(activePrioritizations)
     if (profile) {
       const storedCount = readStoredContactWarningCount(user.id)
       const eventCount = Array.isArray(warningEvents) ? warningEvents.length : 0
@@ -266,14 +274,16 @@ export default function CardsPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {cards.map((card) => (
-            <PersonalityCard
-              key={card.id}
-              card={card}
-              mode="own"
-              onUnlockChat={() => handleUnlockChat(card)}
-              onClose={() => handleCloseCard(card)}
-              onEdit={() => handleEditCard(card)}
-            />
+            <div key={card.id} style={{ position: "relative" }}>
+              {priorityByCard[card.id] && <PrioritizationBadge type={priorityByCard[card.id].plan_type} />}
+              <PersonalityCard
+                card={card}
+                mode="own"
+                onUnlockChat={() => handleUnlockChat(card)}
+                onClose={() => handleCloseCard(card)}
+                onEdit={() => handleEditCard(card)}
+              />
+            </div>
           ))}
         </div>
       )}

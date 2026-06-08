@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
+import { PrioritizationBadge } from "@/components/cards/PrioritizationBadge"
 import { ChatCardPickerModal } from "@/components/chat/ChatCardPickerModal"
 import { ChatUnlockChoiceModal } from "@/components/chat/ChatUnlockChoiceModal"
 import { Spinner } from "@/components/ui/Spinner"
@@ -14,6 +15,7 @@ import { createChatForCardPair } from "@/lib/chat"
 import { resolveChatStart, completeDirectUnlock, type ChatViewer } from "@/lib/chatFlow"
 import type { Counterpart } from "@/lib/lookingFor"
 import { adjustCardMetric, recordCardView } from "@/lib/cardMetrics"
+import { fetchActivePrioritizationsForCards, type PrioritizationByCard } from "@/lib/cardPrioritizations"
 import { ageFromDateOfBirth } from "@/lib/utils/age"
 
 interface UnlockChoiceState {
@@ -40,6 +42,63 @@ function normalizeSelectedValues(values?: string[] | null) {
   return (values ?? []).map((v) => v.trim()).filter(Boolean)
 }
 
+type CardFilterQuery<T> = {
+  eq: (column: string, value: unknown) => T
+  ilike: (column: string, pattern: string) => T
+  overlaps: (column: string, value: string[]) => T
+  contains: (column: string, value: Record<string, unknown>) => T
+}
+
+function applyFilterSearchCriteria<T extends CardFilterQuery<T>>(
+  query: T,
+  searchData: Search,
+  options: { includeOptionalDetails: boolean },
+) {
+  let nextQuery = query
+
+  if (options.includeOptionalDetails && typeof searchData.age === "number" && Number.isFinite(searchData.age)) {
+    nextQuery = nextQuery.eq("age", searchData.age)
+  }
+
+  const gender = searchData.gender?.trim()
+  if (gender) {
+    nextQuery = nextQuery.ilike("gender", gender)
+  }
+
+  const lookingFor = searchData.looking_for?.trim()
+  if (lookingFor) {
+    nextQuery = nextQuery.ilike("looking_for", lookingFor)
+  }
+
+  if (searchData.looking_for_gender) {
+    nextQuery = nextQuery.eq("looking_for_gender", searchData.looking_for_gender)
+  }
+
+  if (options.includeOptionalDetails) {
+    const personalityTypes = normalizeSelectedValues(searchData.personality_types)
+    if (personalityTypes.length) {
+      nextQuery = nextQuery.overlaps("personality_types", personalityTypes)
+    }
+
+    const qualities = normalizeSelectedValues(searchData.qualities)
+    if (qualities.length) {
+      nextQuery = nextQuery.overlaps("qualities", qualities)
+    }
+
+    const hobbies = normalizeSelectedValues(searchData.hobbies)
+    if (hobbies.length) {
+      nextQuery = nextQuery.overlaps("hobbies", hobbies)
+    }
+
+    const activeAddressFilter = getActiveAddressFilter(searchData.tagged_address)
+    if (activeAddressFilter) {
+      nextQuery = nextQuery.contains("tagged_address", activeAddressFilter)
+    }
+  }
+
+  return nextQuery
+}
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
@@ -52,7 +111,7 @@ function SearchResultsContent() {
   const [cards, setCards] = useState<Card[]>([])
   const [interactions, setInteractions] = useState<CardInteraction[]>([])
   const [reads, setReads] = useState<Set<string>>(new Set())
-  const [priorityByCard, setPriorityByCard] = useState<Record<string, { plan_type: "N" | "S"; created_at: string }>>({})
+  const [priorityByCard, setPriorityByCard] = useState<PrioritizationByCard>({})
   const [filter, setFilter] = useState<Filter>("All")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null)
@@ -124,7 +183,10 @@ function SearchResultsContent() {
         searchData = latestSearch
       }
 
-      setSearch(searchData)
+      if (!searchData) throw new Error("No search found. Please create a new search.")
+      const activeSearch = searchData
+
+      setSearch(activeSearch)
 
       let query = supabase
         .from("cards")
@@ -132,44 +194,13 @@ function SearchResultsContent() {
         .eq("is_public", true)
         .eq("is_closed", false)
 
-      if (searchData?.search_type === "card_id") {
-        const cardIdQuery = searchData.card_id_query?.trim()
+      if (activeSearch.search_type === "card_id") {
+        const cardIdQuery = activeSearch.card_id_query?.trim()
         if (cardIdQuery) {
           query = query.ilike("card_id", cardIdQuery)
         }
       } else {
-        if (typeof searchData?.age === "number" && Number.isFinite(searchData.age)) {
-          query = query.eq("age", searchData.age)
-        }
-        const gender = searchData?.gender?.trim()
-        if (gender) {
-          query = query.ilike("gender", gender)
-        }
-        const lookingFor = searchData?.looking_for?.trim()
-        if (lookingFor) {
-          query = query.ilike("looking_for", lookingFor)
-        }
-        if (searchData?.looking_for_gender) {
-          query = query.eq("looking_for_gender", searchData.looking_for_gender)
-        }
-
-        const personalityTypes = normalizeSelectedValues(searchData?.personality_types)
-        if (personalityTypes.length) {
-          query = query.overlaps("personality_types", personalityTypes)
-        }
-        const qualities = normalizeSelectedValues(searchData?.qualities)
-        if (qualities.length) {
-          query = query.overlaps("qualities", qualities)
-        }
-        const hobbies = normalizeSelectedValues(searchData?.hobbies)
-        if (hobbies.length) {
-          query = query.overlaps("hobbies", hobbies)
-        }
-
-        const activeAddressFilter = getActiveAddressFilter(searchData?.tagged_address)
-        if (activeAddressFilter) {
-          query = query.contains("tagged_address", activeAddressFilter)
-        }
+        query = applyFilterSearchCriteria(query, activeSearch, { includeOptionalDetails: true })
       }
 
       let { data: cardsData, error: cardsError } = await query.order("created_at", { ascending: false })
@@ -182,44 +213,13 @@ function SearchResultsContent() {
           .eq("is_public", true)
           .eq("is_closed", false)
 
-        if (searchData?.search_type === "card_id") {
-          const cardIdQuery = searchData.card_id_query?.trim()
+        if (activeSearch.search_type === "card_id") {
+          const cardIdQuery = activeSearch.card_id_query?.trim()
           if (cardIdQuery) {
             fallbackQuery.ilike("card_id", cardIdQuery)
           }
         } else {
-          if (typeof searchData?.age === "number" && Number.isFinite(searchData.age)) {
-            fallbackQuery.eq("age", searchData.age)
-          }
-          const gender = searchData?.gender?.trim()
-          if (gender) {
-            fallbackQuery.ilike("gender", gender)
-          }
-          const lookingFor = searchData?.looking_for?.trim()
-          if (lookingFor) {
-            fallbackQuery.ilike("looking_for", lookingFor)
-          }
-          if (searchData?.looking_for_gender) {
-            fallbackQuery.eq("looking_for_gender", searchData.looking_for_gender)
-          }
-
-          const personalityTypes = normalizeSelectedValues(searchData?.personality_types)
-          if (personalityTypes.length) {
-            fallbackQuery.overlaps("personality_types", personalityTypes)
-          }
-          const qualities = normalizeSelectedValues(searchData?.qualities)
-          if (qualities.length) {
-            fallbackQuery.overlaps("qualities", qualities)
-          }
-          const hobbies = normalizeSelectedValues(searchData?.hobbies)
-          if (hobbies.length) {
-            fallbackQuery.overlaps("hobbies", hobbies)
-          }
-
-          const activeAddressFilter = getActiveAddressFilter(searchData?.tagged_address)
-          if (activeAddressFilter) {
-            fallbackQuery.contains("tagged_address", activeAddressFilter)
-          }
+          applyFilterSearchCriteria(fallbackQuery, activeSearch, { includeOptionalDetails: true })
         }
 
         const fallbackResult = await fallbackQuery.order("created_at", { ascending: false })
@@ -233,7 +233,12 @@ function SearchResultsContent() {
 
       // S-Prioritize injection: S-prioritized cards surface at the top when only
       // gender + Looking For type + Looking For gender match, ignoring other filters.
-      if (searchData?.search_type === "filter") {
+      if (
+        activeSearch.search_type === "filter" &&
+        activeSearch.gender?.trim() &&
+        activeSearch.looking_for?.trim() &&
+        activeSearch.looking_for_gender
+      ) {
         const { data: sActive } = await supabase
           .from("card_prioritizations")
           .select("card_id")
@@ -249,13 +254,27 @@ function SearchResultsContent() {
             .eq("is_closed", false)
             .in("id", sCardIds)
 
-          const gender = searchData?.gender?.trim()
-          if (gender) sQuery = sQuery.ilike("gender", gender)
-          const lookingFor = searchData?.looking_for?.trim()
-          if (lookingFor) sQuery = sQuery.ilike("looking_for", lookingFor)
-          if (searchData?.looking_for_gender) sQuery = sQuery.eq("looking_for_gender", searchData.looking_for_gender)
+          sQuery = applyFilterSearchCriteria(sQuery, activeSearch, { includeOptionalDetails: false })
 
-          const { data: sCards } = await sQuery
+          let { data: sCards, error: sCardsError } = await sQuery
+
+          if (sCardsError) {
+            let sFallbackQuery = supabase
+              .from("cards")
+              .select("*")
+              .eq("is_public", true)
+              .eq("is_closed", false)
+              .in("id", sCardIds)
+
+            sFallbackQuery = applyFilterSearchCriteria(sFallbackQuery, activeSearch, { includeOptionalDetails: false })
+
+            const sFallbackResult = await sFallbackQuery
+            sCards = sFallbackResult.data
+            sCardsError = sFallbackResult.error
+          }
+
+          if (sCardsError) throw sCardsError
+
           const existingIds = new Set(resultCards.map((c) => c.id))
           for (const sc of (sCards ?? []) as Card[]) {
             if (!existingIds.has(sc.id)) resultCards.push(sc)
@@ -264,24 +283,7 @@ function SearchResultsContent() {
       }
 
       // Fetch active prioritizations for the result set and sort.
-      const cardIds = resultCards.map((c) => c.id)
-      const priorityMap: Record<string, { plan_type: "N" | "S"; created_at: string }> = {}
-      if (cardIds.length > 0) {
-        const { data: priorityRows } = await supabase
-          .from("card_prioritizations")
-          .select("card_id, plan_type, created_at")
-          .in("card_id", cardIds)
-          .gt("expires_at", new Date().toISOString())
-          .order("created_at", { ascending: false })
-
-        for (const row of (priorityRows ?? []) as { card_id: string; plan_type: "N" | "S"; created_at: string }[]) {
-          const existing = priorityMap[row.card_id]
-          // Prefer S over N for the badge; keep the most recent prioritization time.
-          if (!existing || (existing.plan_type !== "S" && row.plan_type === "S")) {
-            priorityMap[row.card_id] = { plan_type: row.plan_type, created_at: row.created_at }
-          }
-        }
-      }
+      const priorityMap = await fetchActivePrioritizationsForCards(supabase, resultCards.map((c) => c.id))
 
       // Prioritized cards first (newest prioritization first), then the rest by creation time (oldest first).
       resultCards = [...resultCards].sort((a, b) => {
@@ -842,29 +844,6 @@ function SearchResultsContent() {
         }}
         onClose={() => setUnlockChoice(null)}
       />
-    </div>
-  )
-}
-
-function PrioritizationBadge({ type }: { type: "N" | "S" }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: -12,
-        right: 10,
-        zIndex: 3,
-        padding: "4px 12px",
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 800,
-        letterSpacing: 0.3,
-        color: "white",
-        background: type === "S" ? "linear-gradient(135deg, #EC4899, #7C3AED)" : "var(--color-primary)",
-        boxShadow: "0 6px 18px rgba(124, 58, 237, 0.28)",
-      }}
-    >
-      {type}-Prioritized
     </div>
   )
 }
