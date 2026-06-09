@@ -699,6 +699,7 @@ function SearchResultsContent() {
                 onSave={() => handleInteraction(card, "save")}
                 onMarkRead={(read) => handleMarkRead(card, read)}
                 onChat={() => handleChat(card)}
+                showBrandMark
                 onFullscreen={() => openFullscreen(activeCurrentIndex)}
               />
             )}
@@ -767,7 +768,6 @@ function SearchResultsContent() {
           }}
         >
           <div
-            onClick={(event) => event.stopPropagation()}
             style={{
               flex: 1,
               minHeight: 0,
@@ -785,6 +785,7 @@ function SearchResultsContent() {
               }}
             >
               <div
+                onClick={(event) => event.stopPropagation()}
                 onPointerDown={handleSwipeStart}
                 onPointerUp={handleSwipeEnd}
                 onPointerCancel={() => {
