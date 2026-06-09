@@ -778,39 +778,52 @@ function SearchResultsContent() {
             }}
           >
             <div
-              onPointerDown={handleSwipeStart}
-              onPointerUp={handleSwipeEnd}
-              onPointerCancel={() => {
-                swipeStartRef.current = null
-              }}
-              onPointerLeave={() => {
-                swipeStartRef.current = null
-              }}
               style={{
                 width: "100%",
                 maxWidth: 680,
-                maxHeight: "calc(100dvh - 120px)",
-                overflowY: "auto",
-                overscrollBehavior: "contain",
-                touchAction: "pan-y",
-                borderRadius: 28,
-                boxShadow: "0 30px 90px rgba(0, 0, 0, 0.28)",
+                position: "relative",
+                overflow: "visible",
               }}
             >
-              <PersonalityCard
-                card={fullscreenCard}
-                mode="search"
-                interactions={interactions}
-                isRead={reads.has(fullscreenCard.id)}
-                showTaggedLocation={showTaggedLocation}
-                isOwnInSearch={fullscreenCard.user_id === userId}
-                onLike={() => handleInteraction(fullscreenCard, "like")}
-                onSave={() => handleInteraction(fullscreenCard, "save")}
-                onMarkRead={(read) => handleMarkRead(fullscreenCard, read)}
-                onChat={() => handleChat(fullscreenCard)}
-                showBrandMark
-                fullscreen
-              />
+              {fullscreenCard && priorityByCard[fullscreenCard.id] && (
+                <div style={{ position: "absolute", top: 0, right: 10, zIndex: 6, pointerEvents: "none" }}>
+                  <PrioritizationBadge type={priorityByCard[fullscreenCard.id].plan_type} />
+                </div>
+              )}
+              <div
+                onPointerDown={handleSwipeStart}
+                onPointerUp={handleSwipeEnd}
+                onPointerCancel={() => {
+                  swipeStartRef.current = null
+                }}
+                onPointerLeave={() => {
+                  swipeStartRef.current = null
+                }}
+                style={{
+                  width: "100%",
+                  maxHeight: "calc(100dvh - 120px)",
+                  overflowY: "auto",
+                  overscrollBehavior: "contain",
+                  touchAction: "pan-y",
+                  borderRadius: 28,
+                  boxShadow: "0 30px 90px rgba(0, 0, 0, 0.28)",
+                }}
+              >
+                <PersonalityCard
+                  card={fullscreenCard}
+                  mode="search"
+                  interactions={interactions}
+                  isRead={reads.has(fullscreenCard.id)}
+                  showTaggedLocation={showTaggedLocation}
+                  isOwnInSearch={fullscreenCard.user_id === userId}
+                  onLike={() => handleInteraction(fullscreenCard, "like")}
+                  onSave={() => handleInteraction(fullscreenCard, "save")}
+                  onMarkRead={(read) => handleMarkRead(fullscreenCard, read)}
+                  onChat={() => handleChat(fullscreenCard)}
+                  showBrandMark
+                  fullscreen
+                />
+              </div>
             </div>
           </div>
 

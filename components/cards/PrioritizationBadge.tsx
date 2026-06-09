@@ -4,11 +4,16 @@ export function PrioritizationBadge({ type }: { type: PrioritizationType }) {
   return (
     <div
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        whiteSpace: "nowrap",
+        width: "max-content",
         position: "absolute",
         top: -12,
         right: 10,
         zIndex: 3,
-        padding: "4px 12px",
+        padding: "5px 12px",
         borderRadius: 999,
         fontSize: 11,
         fontWeight: 800,
