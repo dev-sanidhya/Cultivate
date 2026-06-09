@@ -257,7 +257,7 @@ export function PersonalityCard({
           marginBottom: 14,
           flex: "1 1 auto",
           minHeight: 0,
-          overflow: "hidden",
+          overflowY: "auto",
           fontSize: 13,
           color: "var(--color-text-secondary)",
           lineHeight: 1.5,
@@ -440,14 +440,30 @@ function SingleLineTagSection({
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-label={expanded ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
+        aria-expanded={expanded}
+        title={expanded ? `Collapse ${title}` : `Expand ${title}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          marginBottom: 6,
+          width: "100%",
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>
           {title}
         </div>
-        <button
-          onClick={() => setExpanded((prev) => !prev)}
-          aria-label={expanded ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
-          title={expanded ? `Collapse ${title}` : `Expand ${title}`}
+        <span
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -463,8 +479,8 @@ function SingleLineTagSection({
           }}
         >
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        </button>
-      </div>
+        </span>
+      </button>
       {expanded && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {tags.map((tag) => (

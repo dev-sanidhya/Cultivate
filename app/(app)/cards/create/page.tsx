@@ -13,6 +13,22 @@ import { getErrorMessage } from "@/lib/utils/errors"
 import { shouldEnableChatForCard } from "@/lib/chatUnlocks"
 import type { FieldOption, Gender } from "@/types"
 
+const DEFAULT_NOTE_TEMPLATE = `# My Personality & Nature
+
+
+
+
+
+
+# Actions That Reflect My Personality
+
+
+
+
+
+
+# My Expectations For The Person I Am Looking For`
+
 export default function CreateCardPage() {
   const router = useRouter()
   const [fieldOptions, setFieldOptions] = useState<Record<string, FieldOption[]>>({})
@@ -180,6 +196,7 @@ export default function CreateCardPage() {
     <div className="page-container" style={{ paddingTop: 5 }}>
       <PageHeader title="Create Card" subtitle="Share who you are" showBack />
       <CardForm
+        initialData={{ note: DEFAULT_NOTE_TEMPLATE }}
         gender={gender}
         fieldOptions={fieldOptions}
         onSubmit={handleSubmit}
