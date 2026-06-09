@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
-import { PrioritizationBadge } from "@/components/cards/PrioritizationBadge"
 import { ChatCardPickerModal } from "@/components/chat/ChatCardPickerModal"
 import { ChatUnlockChoiceModal } from "@/components/chat/ChatUnlockChoiceModal"
 import { Spinner } from "@/components/ui/Spinner"
@@ -687,7 +686,6 @@ function SearchResultsContent() {
             onPointerUp={isMobile ? handleNormalSwipeEnd : undefined}
             onPointerCancel={isMobile ? () => { swipeStartRef.current = null } : undefined}
           >
-            {card && priorityByCard[card.id] && <PrioritizationBadge type={priorityByCard[card.id].plan_type} />}
             {card && (
               <PersonalityCard
                 card={card}
@@ -696,6 +694,7 @@ function SearchResultsContent() {
                 isRead={reads.has(card.id)}
                 showTaggedLocation={showTaggedLocation}
                 isOwnInSearch={card.user_id === userId}
+                prioritizationType={priorityByCard[card.id]?.plan_type ?? null}
                 onLike={() => handleInteraction(card, "like")}
                 onSave={() => handleInteraction(card, "save")}
                 onMarkRead={(read) => handleMarkRead(card, read)}
@@ -785,11 +784,6 @@ function SearchResultsContent() {
                 overflow: "visible",
               }}
             >
-              {fullscreenCard && priorityByCard[fullscreenCard.id] && (
-                <div style={{ position: "absolute", top: 0, right: 10, zIndex: 6, pointerEvents: "none" }}>
-                  <PrioritizationBadge type={priorityByCard[fullscreenCard.id].plan_type} />
-                </div>
-              )}
               <div
                 onPointerDown={handleSwipeStart}
                 onPointerUp={handleSwipeEnd}
@@ -816,6 +810,7 @@ function SearchResultsContent() {
                   isRead={reads.has(fullscreenCard.id)}
                   showTaggedLocation={showTaggedLocation}
                   isOwnInSearch={fullscreenCard.user_id === userId}
+                  prioritizationType={priorityByCard[fullscreenCard.id]?.plan_type ?? null}
                   onLike={() => handleInteraction(fullscreenCard, "like")}
                   onSave={() => handleInteraction(fullscreenCard, "save")}
                   onMarkRead={(read) => handleMarkRead(fullscreenCard, read)}

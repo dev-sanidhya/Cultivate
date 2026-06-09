@@ -10,7 +10,6 @@ import { Modal } from "@/components/ui/Modal"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
-import { PrioritizationBadge } from "@/components/cards/PrioritizationBadge"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
@@ -274,14 +273,14 @@ export default function CardsPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {cards.map((card) => (
-            <div key={card.id} style={{ position: "relative" }}>
-              {priorityByCard[card.id] && <PrioritizationBadge type={priorityByCard[card.id].plan_type} />}
+            <div key={card.id}>
               <PersonalityCard
                 card={card}
                 mode="own"
                 onUnlockChat={() => handleUnlockChat(card)}
                 onClose={() => handleCloseCard(card)}
                 onEdit={() => handleEditCard(card)}
+                prioritizationType={priorityByCard[card.id]?.plan_type ?? null}
               />
             </div>
           ))}

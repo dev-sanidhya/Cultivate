@@ -6,6 +6,8 @@ import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
 import { formatLookingFor } from "@/lib/lookingFor"
+import { PrioritizationBadge } from "@/components/cards/PrioritizationBadge"
+import type { PrioritizationType } from "@/types"
 
 interface PersonalityCardProps {
   card: Card
@@ -21,6 +23,7 @@ interface PersonalityCardProps {
   onFullscreen?: () => void
   showBrandMark?: boolean
   showTaggedLocation?: boolean
+  prioritizationType?: PrioritizationType | null
   isRead?: boolean
   fullscreen?: boolean
   isOwnInSearch?: boolean
@@ -41,6 +44,7 @@ export function PersonalityCard({
   onFullscreen,
   showBrandMark,
   showTaggedLocation,
+  prioritizationType,
   isRead,
   fullscreen = false,
   isOwnInSearch = false,
@@ -49,6 +53,47 @@ export function PersonalityCard({
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
   const isSaved = interactions.some((i) => i.card_id === card.id && i.type === "save")
   const noteText = card.note?.trim() ?? ""
+  const profileParts = [
+    `${card.age}y`,
+    card.gender ? card.gender.charAt(0).toUpperCase() + card.gender.slice(1) : null,
+    ...(card.personality_types ?? []),
+  ].filter(Boolean) as string[]
+  const profileLabel = profileParts.join(" • ")
+  const lookingForChipStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+    color: "white",
+    padding: "6px 14px",
+    borderRadius: 20,
+    fontSize: 13,
+    fontWeight: 600,
+    minWidth: 0,
+    maxWidth: "100%",
+    flex: "0 1 auto",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  } as const
+  const profileChipStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "5px 12px",
+    borderRadius: 9999,
+    fontSize: 13,
+    fontWeight: 500,
+    background: "var(--color-primary-bg)",
+    color: "var(--color-primary)",
+    border: "none",
+    whiteSpace: "nowrap",
+    minWidth: 0,
+    maxWidth: "100%",
+    flex: "0 1 auto",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  } as const
 
   function shareCard() {
     const url = `${window.location.origin}/card/${card.card_id}`
@@ -106,7 +151,7 @@ export function PersonalityCard({
 
       {/* Top row: Card ID + status */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span
             style={{
               background: "var(--color-primary-bg)",
@@ -121,6 +166,7 @@ export function PersonalityCard({
           >
             #{card.card_id}
           </span>
+          {prioritizationType && <PrioritizationBadge type={prioritizationType} floating={false} />}
           {card.is_closed && (
             <span style={{ fontSize: 11, color: "var(--color-text-muted)", background: "#F3F4F6", padding: "3px 8px", borderRadius: 20 }}>
               Closed
@@ -199,39 +245,23 @@ export function PersonalityCard({
         </div>
       </div>
 
-      {/* Looking For - prominent */}
-      {card.looking_for && (
+      {/* Looking For + profile chips */}
+      {(card.looking_for || profileLabel) && (
         <div style={{ marginBottom: 14 }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-              color: "white",
-              padding: "6px 14px",
-              borderRadius: 20,
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            Looking for: {formatLookingFor(card.looking_for, card.looking_for_gender)}
+          <div style={{ display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 8, width: "100%", minWidth: 0 }}>
+            {card.looking_for && (
+              <div style={lookingForChipStyle}>
+                Looking for: {formatLookingFor(card.looking_for, card.looking_for_gender)}
+              </div>
+            )}
+            {profileLabel && (
+              <span style={{ ...profileChipStyle, marginLeft: "auto" }}>
+                {profileLabel}
+              </span>
+            )}
           </div>
         </div>
       )}
-
-      {/* Core fields */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-        <span className="tag selected" style={{ background: "#EDE9FE", color: "#6D28D9", border: "none" }}>
-          {card.age}y
-        </span>
-        <span className="tag selected" style={{ background: "#EDE9FE", color: "#6D28D9", border: "none", textTransform: "capitalize" }}>
-          {card.gender}
-        </span>
-        {card.personality_types?.map((p) => (
-          <span key={p} className="tag">{p}</span>
-        ))}
-      </div>
 
       {/* Address */}
       {addressLabel && (
