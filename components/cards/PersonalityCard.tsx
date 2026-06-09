@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, type RefObject } from "react"
-import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2, Pencil, CircleX, ChevronDown, ChevronRight } from "lucide-react"
+import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Pencil, CircleX, ChevronDown, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
@@ -94,6 +94,7 @@ export function PersonalityCard({
     overflow: "hidden",
     textOverflow: "ellipsis",
   } as const
+  const isSearchCardInteractive = mode === "search" && !!onFullscreen && !fullscreen
 
   function shareCard() {
     const url = `${window.location.origin}/card/${card.card_id}`
@@ -111,6 +112,20 @@ export function PersonalityCard({
   return (
     <div
       className="card animate-fadeIn"
+      role={isSearchCardInteractive ? "button" : undefined}
+      tabIndex={isSearchCardInteractive ? 0 : undefined}
+      aria-label={isSearchCardInteractive ? "Open card fullscreen" : undefined}
+      onClick={isSearchCardInteractive ? onFullscreen : undefined}
+      onKeyDown={
+        isSearchCardInteractive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                onFullscreen?.()
+              }
+            }
+          : undefined
+      }
       style={{
         display: "flex",
         flexDirection: "column",
@@ -120,35 +135,9 @@ export function PersonalityCard({
         overflow: "hidden",
         position: "relative",
         opacity: card.is_closed ? 0.7 : 1,
+        cursor: isSearchCardInteractive ? "pointer" : "default",
       }}
     >
-      {mode === "search" && onFullscreen && (
-        <button
-          onClick={onFullscreen}
-          aria-label="Open fullscreen"
-          title="Open fullscreen"
-          style={{
-            position: "absolute",
-            top: 14,
-            right: 14,
-            width: 34,
-            height: 34,
-            borderRadius: "50%",
-            border: "1px solid var(--color-border)",
-            background: "rgba(255,255,255,0.96)",
-            color: "var(--color-text-secondary)",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            boxShadow: "0 8px 24px rgba(99, 102, 241, 0.10)",
-            zIndex: 2,
-          }}
-        >
-          <Maximize2 size={15} />
-        </button>
-      )}
-
       {/* Top row: Card ID + status */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -353,7 +342,10 @@ export function PersonalityCard({
       {mode === "search" && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, borderTop: "1px solid var(--color-border-light)", paddingTop: 0 }}>
           <button
-            onClick={onLike}
+            onClick={(event) => {
+              event.stopPropagation()
+              onLike?.()
+            }}
             aria-label={isLiked ? "Unlike" : "Like"}
             title={isLiked ? "Unlike" : "Like"}
             style={{
@@ -372,7 +364,10 @@ export function PersonalityCard({
             <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
           </button>
           <button
-            onClick={onSave}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSave?.()
+            }}
             aria-label={isSaved ? "Unsave" : "Save"}
             title={isSaved ? "Unsave" : "Save"}
             style={{
@@ -391,7 +386,10 @@ export function PersonalityCard({
             <Bookmark size={18} fill={isSaved ? "currentColor" : "none"} />
           </button>
           <button
-            onClick={() => onMarkRead?.(!isRead)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onMarkRead?.(!isRead)
+            }}
             aria-label={isRead ? "Mark unread" : "Mark read"}
             title={isRead ? "Mark unread" : "Mark read"}
             style={{
@@ -411,7 +409,10 @@ export function PersonalityCard({
             {isRead ? <BookCheck size={18} /> : <BookOpen size={18} />}
           </button>
           <button
-            onClick={shareCard}
+            onClick={(event) => {
+              event.stopPropagation()
+              shareCard()
+            }}
             aria-label="Share"
             title="Share"
             style={{
@@ -442,7 +443,10 @@ export function PersonalityCard({
             </span>
           ) : (
             <button
-              onClick={onChat}
+              onClick={(event) => {
+                event.stopPropagation()
+                onChat?.()
+              }}
               style={{
                 marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
                 padding: "8px 16px", borderRadius: 20,
@@ -472,7 +476,10 @@ function SingleLineTagSection({
     <div style={{ marginBottom: 8 }}>
       <button
         type="button"
-        onClick={() => setExpanded((prev) => !prev)}
+        onClick={(event) => {
+          event.stopPropagation()
+          setExpanded((prev) => !prev)
+        }}
         aria-label={expanded ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
         aria-expanded={expanded}
         title={expanded ? `Collapse ${title}` : `Expand ${title}`}
