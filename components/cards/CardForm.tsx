@@ -1,13 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { X } from "lucide-react"
 import { toast } from "sonner"
 import { moderateNote } from "@/lib/utils/moderation"
 import { PopupModal } from "@/components/ui/PopupModal"
+import { PersonalityCard } from "@/components/cards/PersonalityCard"
 import { TaggedAddressFieldGroup } from "@/components/cards/TaggedAddressFieldGroup"
 import { requiresGenderSelection } from "@/lib/lookingFor"
 import type { TaggedAddress, TaggedAddressType, Gender, FieldOption } from "@/types"
+import type { Card } from "@/types"
 
 const TARGET_GENDERS: Gender[] = ["male", "female", "other"]
 
@@ -43,6 +45,7 @@ interface ContactViolationResult {
 }
 
 type MultiSelectField = "personality_types" | "qualities" | "hobbies"
+const DEFAULT_NOTE_HEIGHT = 180
 
 export function CardForm({
   initialData,
@@ -64,6 +67,8 @@ export function CardForm({
   const [hobbies, setHobbies] = useState<string[]>(initialData?.hobbies ?? [])
   const [note, setNote] = useState(initialData?.note ?? "")
   const [noteError, setNoteError] = useState("")
+  const [notePanelHeight, setNotePanelHeight] = useState(DEFAULT_NOTE_HEIGHT)
+  const notePanelRef = useRef<HTMLDivElement | null>(null)
   const [violationState, setViolationState] = useState<{
     open: boolean
     reason: string
@@ -131,7 +136,7 @@ export function CardForm({
     setCustomInputs((prev) => ({ ...prev, [field]: "" }))
   }
 
-  function buildTaggedAddress(): TaggedAddress | null {
+  const buildTaggedAddress = useCallback((): TaggedAddress | null => {
     if (!addressType) return null
     switch (addressType) {
       case "college":
@@ -163,7 +168,52 @@ export function CardForm({
           building_name: addressFields.building_name ?? "",
         }
     }
-  }
+  }, [addressFields, addressType])
+
+  const previewCard = useMemo<Card>(
+    () => ({
+      id: "preview-card",
+      card_id: "PREVIEW",
+      user_id: "preview-user",
+      age: Number(age) || 0,
+      gender,
+      personality_types: personalityTypes,
+      tagged_address: buildTaggedAddress(),
+      looking_for: lookingFor,
+      looking_for_gender: requiresGenderSelection(lookingFor) ? (lookingForGender || null) : null,
+      qualities,
+      hobbies,
+      note: note || null,
+      is_public: true,
+      is_closed: false,
+      closed_with_profile_id: null,
+      chat_enabled: false,
+      view_count: 0,
+      save_count: 0,
+      like_count: 0,
+      created_at: "",
+      updated_at: "",
+    }),
+    [age, gender, personalityTypes, lookingFor, lookingForGender, qualities, hobbies, note, buildTaggedAddress]
+  )
+
+  useLayoutEffect(() => {
+    const el = notePanelRef.current
+    if (!el) return
+
+    const updateHeight = () => {
+      const nextHeight = Math.ceil(el.getBoundingClientRect().height)
+      if (nextHeight > 0) setNotePanelHeight(nextHeight)
+    }
+
+    updateHeight()
+
+    if (typeof ResizeObserver === "undefined") return
+
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [previewCard])
 
   async function handleSubmit() {
     if (!age || isNaN(Number(age)) || Number(age) < 13 || Number(age) > 100) {
@@ -249,7 +299,7 @@ export function CardForm({
         onConfirm={() => setViolationState((prev) => ({ ...prev, open: false }))}
       />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Age */}
       <div>
         <label className="label">Age *</label>
@@ -524,8 +574,16 @@ export function CardForm({
             setNote(e.target.value)
             if (noteError) setNoteError("")
           }}
-          rows={3}
-          style={{ resize: "none" }}
+          style={{
+            resize: "none",
+            height: notePanelHeight,
+            padding: "10px 12px",
+            fontSize: 13,
+            lineHeight: 1.5,
+            color: "var(--color-text-secondary)",
+            background: "var(--color-primary-bg)",
+            overflowY: "auto",
+          }}
           disabled={disabled}
         />
         {noteError && (
@@ -549,6 +607,21 @@ export function CardForm({
         >
           {loading ? "Saving..." : submitLabel}
         </button>
+      </div>
+
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          pointerEvents: "none",
+          visibility: "hidden",
+          zIndex: -1,
+        }}
+      >
+        <PersonalityCard card={previewCard} mode="public" notePanelRef={notePanelRef} />
       </div>
       </div>
     </>

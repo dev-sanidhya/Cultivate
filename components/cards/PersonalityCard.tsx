@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type RefObject } from "react"
 import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2, Pencil, CircleX, ChevronDown, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
@@ -24,6 +24,7 @@ interface PersonalityCardProps {
   isRead?: boolean
   fullscreen?: boolean
   isOwnInSearch?: boolean
+  notePanelRef?: RefObject<HTMLDivElement | null>
 }
 
 export function PersonalityCard({
@@ -43,6 +44,7 @@ export function PersonalityCard({
   isRead,
   fullscreen = false,
   isOwnInSearch = false,
+  notePanelRef,
 }: PersonalityCardProps) {
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
   const isSaved = interactions.some((i) => i.card_id === card.id && i.type === "save")
@@ -247,6 +249,7 @@ export function PersonalityCard({
 
       {/* Note */}
       <div
+        ref={notePanelRef}
         style={{
           background: "var(--color-primary-bg)",
           borderRadius: 10,
@@ -254,7 +257,7 @@ export function PersonalityCard({
           marginBottom: 14,
           flex: "1 1 auto",
           minHeight: 0,
-          overflowY: "auto",
+          overflow: "hidden",
           fontSize: 13,
           color: "var(--color-text-secondary)",
           lineHeight: 1.5,
