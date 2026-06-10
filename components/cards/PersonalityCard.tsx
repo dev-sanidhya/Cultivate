@@ -9,6 +9,9 @@ import { formatLookingFor } from "@/lib/lookingFor"
 import { PrioritizationBadge } from "@/components/cards/PrioritizationBadge"
 import type { PrioritizationType } from "@/types"
 
+// Increase/decrease this to tune the desktop card width without changing the card internals.
+const DESKTOP_CARD_MAX_WIDTH = 375
+
 interface PersonalityCardProps {
   card: Card
   mode: "own" | "search" | "public"
@@ -132,6 +135,9 @@ export function PersonalityCard({
         display: "flex",
         flexDirection: "column",
         aspectRatio: "7 / 12",
+        width: "100%",
+        maxWidth: fullscreen ? undefined : DESKTOP_CARD_MAX_WIDTH,
+        margin: "0 auto",
         padding: "18px",
         borderRadius: fullscreen ? 28 : undefined,
         overflow: "hidden",
