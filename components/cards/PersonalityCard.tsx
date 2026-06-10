@@ -22,6 +22,7 @@ interface PersonalityCardProps {
   onMarkRead?: (read: boolean) => void
   onFullscreen?: () => void
   showBrandMark?: boolean
+  showOwnActionsInside?: boolean
   showTaggedLocation?: boolean
   prioritizationType?: PrioritizationType | null
   isRead?: boolean
@@ -43,6 +44,7 @@ export function PersonalityCard({
   onMarkRead,
   onFullscreen,
   showBrandMark,
+  showOwnActionsInside = true,
   showTaggedLocation,
   prioritizationType,
   isRead,
@@ -185,7 +187,7 @@ export function PersonalityCard({
                 Strefo
               </span>
           )}
-          {mode === "own" && (
+          {mode === "own" && showOwnActionsInside && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
               {!card.is_closed && card.is_public && (
                 <button

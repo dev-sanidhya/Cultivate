@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
+import { Plus, CircleX, Pencil } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
@@ -273,13 +273,59 @@ export default function CardsPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {cards.map((card) => (
-            <div key={card.id}>
+            <div key={card.id} style={{ position: "relative" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 8, paddingRight: 4 }}>
+                {!card.is_closed && card.is_public && (
+                  <button
+                    onClick={() => handleCloseCard(card)}
+                    aria-label="Close card"
+                    title="Close card"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--color-error)",
+                      background: "var(--color-error-bg)",
+                      padding: 0,
+                      borderRadius: "50%",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <CircleX size={16} />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleEditCard(card)}
+                  aria-label="Edit card"
+                  title="Edit card"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--color-text-secondary)",
+                    background: "var(--color-surface)",
+                    padding: 0,
+                    borderRadius: "50%",
+                    border: "1px solid var(--color-border)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Pencil size={16} />
+                </button>
+              </div>
               <PersonalityCard
                 card={card}
                 mode="own"
                 onUnlockChat={() => handleUnlockChat(card)}
                 onClose={() => handleCloseCard(card)}
                 onEdit={() => handleEditCard(card)}
+                showBrandMark
+                showOwnActionsInside={false}
                 prioritizationType={priorityByCard[card.id]?.plan_type ?? null}
               />
             </div>
