@@ -13,6 +13,7 @@ import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
 import { enableChatForCategory } from "@/lib/chatFlow"
+import { resolveUnlockPricing } from "@/lib/pricing"
 import type { Card } from "@/types"
 
 type CardRef = { id: string; card_id: string }
@@ -153,13 +154,7 @@ export default function CardsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data: pricing } = await supabase
-      .from("chat_pricing")
-      .select("*")
-      .eq("looking_for_category", card.looking_for)
-      .maybeSingle()
-
-    const duration = pricing?.duration_days ?? 30
+    const { durationDays: duration } = await resolveUnlockPricing(supabase, card.looking_for)
 
     // Unlock applies to the whole (category, gender); enable every same-category card.
     // Payment is mocked as successful until a gateway is integrated.

@@ -9,6 +9,7 @@ import {
   type Counterpart,
 } from "@/lib/lookingFor"
 import { generateCardId } from "@/lib/utils/cardId"
+import { resolveUnlockPricing } from "@/lib/pricing"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
 
@@ -55,15 +56,9 @@ export async function hasActiveUnlock(
 }
 
 async function fetchPricing(supabase: SupabaseLike, category: string) {
-  const { data } = await supabase
-    .from("chat_pricing")
-    .select("price, duration_days")
-    .eq("looking_for_category", category)
-    .maybeSingle()
-  return {
-    price: data?.price ?? 0,
-    durationDays: data?.duration_days ?? 30,
-  }
+  // Falls back to platform default pricing for unverified/custom categories.
+  const { price, durationDays } = await resolveUnlockPricing(supabase, category)
+  return { price, durationDays }
 }
 
 /** Enable chat on every (non-closed) card the user owns in this (category, gender). */

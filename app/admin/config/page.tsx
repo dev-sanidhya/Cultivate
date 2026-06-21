@@ -13,6 +13,8 @@ const PLATFORM_KEYS = [
   { key: "upload_contacts_email", label: "Upload Contacts Email" },
   { key: "feedback_email", label: "Feedback Email" },
   { key: "contact_penalty_amount", label: "Contact Details Penalty Amount (Rs.)" },
+  { key: "default_chat_unlock_price", label: "Default Chat Unlock Price (paise) - unverified categories" },
+  { key: "default_chat_unlock_duration_days", label: "Default Chat Unlock Duration (days) - unverified categories" },
 ]
 
 export default function AdminConfigPage() {
