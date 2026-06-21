@@ -247,13 +247,13 @@ function SearchHistoryCard({
           </div>
         )}
 
-        {!!search.hobbies?.length && (
+        {!!search.interests?.length && (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>Hobbies</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>Interests</div>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {search.hobbies.map((h) => (
+              {search.interests.map((h) => (
                 <span key={h} className="tag" style={{ fontSize: 12, flex: "0 0 auto" }}>
                   {h}
                 </span>

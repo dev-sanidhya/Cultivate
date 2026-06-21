@@ -7,6 +7,7 @@ import { moderateNote } from "@/lib/utils/moderation"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { TaggedAddressFieldGroup } from "@/components/cards/TaggedAddressFieldGroup"
 import { requiresGenderSelection } from "@/lib/lookingFor"
+import { INDIAN_STATES_AND_UTS } from "@/lib/indianStates"
 import type { TaggedAddress, TaggedAddressType, Gender, FieldOption } from "@/types"
 
 const TARGET_GENDERS: Gender[] = ["male", "female", "other"]
@@ -18,7 +19,9 @@ interface CardFormData {
   looking_for: string
   looking_for_gender: Gender | null
   qualities: string[]
-  hobbies: string[]
+  interests: string[]
+  weakness: string[]
+  disinterests: string[]
   note: string
 }
 
@@ -42,7 +45,15 @@ interface ContactViolationResult {
   blocked: boolean
 }
 
-type MultiSelectField = "personality_types" | "qualities" | "hobbies"
+type MultiSelectField = "personality_types" | "qualities" | "interests" | "weakness" | "disinterests"
+
+// Free-tag fields rendered with the identical "tags + custom input" UI.
+const TAG_FIELDS: { field: Exclude<MultiSelectField, "personality_types">; label: string }[] = [
+  { field: "qualities", label: "My Qualities" },
+  { field: "weakness", label: "My Weakness" },
+  { field: "interests", label: "My Interests" },
+  { field: "disinterests", label: "My Disinterests" },
+]
 
 export function CardForm({
   initialData,
@@ -60,8 +71,13 @@ export function CardForm({
   const [personalityTypes, setPersonalityTypes] = useState<string[]>(initialData?.personality_types ?? [])
   const [lookingFor, setLookingFor] = useState(initialData?.looking_for ?? "")
   const [lookingForGender, setLookingForGender] = useState<Gender | "">(initialData?.looking_for_gender ?? "")
-  const [qualities, setQualities] = useState<string[]>(initialData?.qualities ?? [])
-  const [hobbies, setHobbies] = useState<string[]>(initialData?.hobbies ?? [])
+  // Free-tag multi-select fields share one state record keyed by field name.
+  const [tagValues, setTagValues] = useState<Record<string, string[]>>({
+    qualities: initialData?.qualities ?? [],
+    interests: initialData?.interests ?? [],
+    weakness: initialData?.weakness ?? [],
+    disinterests: initialData?.disinterests ?? [],
+  })
   const [note, setNote] = useState(initialData?.note ?? "")
   const [noteError, setNoteError] = useState("")
   const [violationState, setViolationState] = useState<{
@@ -91,14 +107,18 @@ export function CardForm({
   const [pendingCustomOptions, setPendingCustomOptions] = useState<{ field: string; value: string }[]>([])
 
   function toggleMultiSelect(field: MultiSelectField, value: string) {
-    const setter = field === "personality_types" ? setPersonalityTypes : field === "qualities" ? setQualities : setHobbies
-    const current = field === "personality_types" ? personalityTypes : field === "qualities" ? qualities : hobbies
     if (field === "personality_types") {
       // Single selection for personality type
       setPersonalityTypes(personalityTypes.includes(value) ? [] : [value])
       return
     }
-    setter(current.includes(value) ? current.filter((v) => v !== value) : [...current, value])
+    setTagValues((prev) => {
+      const current = prev[field] ?? []
+      return {
+        ...prev,
+        [field]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value],
+      }
+    })
   }
 
   function selectLookingFor(value: string) {
@@ -161,6 +181,7 @@ export function CardForm({
           type: "general",
           pin_code: addressFields.pin_code ?? "",
           building_name: addressFields.building_name ?? "",
+          state: addressFields.state ?? "",
         }
     }
   }
@@ -204,8 +225,10 @@ export function CardForm({
       tagged_address: buildTaggedAddress(),
       looking_for: lookingFor,
       looking_for_gender: requiresGenderSelection(lookingFor) ? (lookingForGender || null) : null,
-      qualities,
-      hobbies,
+      qualities: tagValues.qualities ?? [],
+      interests: tagValues.interests ?? [],
+      weakness: tagValues.weakness ?? [],
+      disinterests: tagValues.disinterests ?? [],
       note,
     }
 
@@ -436,82 +459,73 @@ export function CardForm({
           />
         )}
         {addressType === "general" && (
-          <TaggedAddressFieldGroup
-            key={addressType}
-            addressType={addressType}
-            fields={[
-              { key: "pin_code", label: "Pin Code", placeholder: "Area pin code" },
-              { key: "building_name", label: "Building / Premises", placeholder: "Name of place" },
-            ]}
-            values={addressFields}
-            onChange={(k, v) => {
-              setAddressFields((p) => ({ ...p, [k]: v }))
-            }}
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <TaggedAddressFieldGroup
+              key={addressType}
+              addressType={addressType}
+              fields={[
+                { key: "building_name", label: "Building / Premises", placeholder: "Name of place" },
+                { key: "pin_code", label: "Pin Code", placeholder: "Area pin code" },
+              ]}
+              values={addressFields}
+              onChange={(k, v) => {
+                setAddressFields((p) => ({ ...p, [k]: v }))
+              }}
+            />
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 4, display: "block" }}>
+                State / Union Territory
+              </label>
+              <select
+                className="input"
+                value={addressFields.state ?? ""}
+                onChange={(e) => setAddressFields((p) => ({ ...p, state: e.target.value }))}
+              >
+                <option value="">Select a State / UT</option>
+                {INDIAN_STATES_AND_UTS.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Qualities */}
-      <div>
-        <label className="label">My Qualities</label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          {getDisplayOptions("qualities", qualities).map((opt) => (
-            <button
-              key={opt}
-              className={`tag ${qualities.includes(opt) ? "selected" : ""}`}
-              onClick={() => toggleMultiSelect("qualities", opt)}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            placeholder="Type your own..."
-            value={customInputs.qualities ?? ""}
-            onChange={(e) => setCustomInputs((p) => ({ ...p, qualities: e.target.value }))}
-            onKeyDown={(e) => e.key === "Enter" && addCustomOption("qualities", "qualities")}
-          />
-          <button
-            onClick={() => addCustomOption("qualities", "qualities")}
-            style={{ padding: "10px 16px", background: "var(--color-primary-bg)", border: "1px solid var(--color-border)", borderRadius: 10, color: "var(--color-primary)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontSize: 13 }}
-          >
-            Add
-          </button>
-        </div>
-      </div>
-
-      {/* Hobbies */}
-      <div>
-        <label className="label">My Hobbies</label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          {getDisplayOptions("hobbies", hobbies).map((opt) => (
-            <button
-              key={opt}
-              className={`tag ${hobbies.includes(opt) ? "selected" : ""}`}
-              onClick={() => toggleMultiSelect("hobbies", opt)}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            placeholder="Type your own..."
-            value={customInputs.hobbies ?? ""}
-            onChange={(e) => setCustomInputs((p) => ({ ...p, hobbies: e.target.value }))}
-            onKeyDown={(e) => e.key === "Enter" && addCustomOption("hobbies", "hobbies")}
-          />
-          <button
-            onClick={() => addCustomOption("hobbies", "hobbies")}
-            style={{ padding: "10px 16px", background: "var(--color-primary-bg)", border: "1px solid var(--color-border)", borderRadius: 10, color: "var(--color-primary)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontSize: 13 }}
-          >
-            Add
-          </button>
-        </div>
-      </div>
+      {/* Qualities, Weakness, Interests, Disinterests (identical tag UI) */}
+      {TAG_FIELDS.map(({ field, label }) => {
+        const selected = tagValues[field] ?? []
+        return (
+          <div key={field}>
+            <label className="label">{label}</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+              {getDisplayOptions(field, selected).map((opt) => (
+                <button
+                  key={opt}
+                  className={`tag ${selected.includes(opt) ? "selected" : ""}`}
+                  onClick={() => toggleMultiSelect(field, opt)}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="input"
+                placeholder="Type your own..."
+                value={customInputs[field] ?? ""}
+                onChange={(e) => setCustomInputs((p) => ({ ...p, [field]: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && addCustomOption(field, field)}
+              />
+              <button
+                onClick={() => addCustomOption(field, field)}
+                style={{ padding: "10px 16px", background: "var(--color-primary-bg)", border: "1px solid var(--color-border)", borderRadius: 10, color: "var(--color-primary)", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontSize: 13 }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )
+      })}
 
       {/* Note */}
       <div>

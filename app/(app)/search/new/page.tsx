@@ -32,7 +32,7 @@ function NewSearchContent() {
   const [lookingForGender, setLookingForGender] = useState<Gender | "">("")
   const [personalityTypes, setPersonalityTypes] = useState<string[]>([])
   const [qualities, setQualities] = useState<string[]>([])
-  const [hobbies, setHobbies] = useState<string[]>([])
+  const [interests, setInterests] = useState<string[]>([])
   const [addressType, setAddressType] = useState<TaggedAddressType | null>(null)
   const [addressFields, setAddressFields] = useState<Record<string, string>>({})
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({})
@@ -70,7 +70,7 @@ function NewSearchContent() {
           setLookingForGender(existingSearch.looking_for_gender ?? "")
           setPersonalityTypes(existingSearch.personality_types ?? [])
           setQualities(existingSearch.qualities ?? [])
-          setHobbies(existingSearch.hobbies ?? [])
+          setInterests(existingSearch.interests ?? [])
           if (existingSearch.tagged_address) {
             setAddressType(existingSearch.tagged_address.type)
             const fields = { ...existingSearch.tagged_address }
@@ -84,11 +84,11 @@ function NewSearchContent() {
   }, [editId])
 
   function toggleMulti(
-    field: "personality_types" | "qualities" | "hobbies",
+    field: "personality_types" | "qualities" | "interests",
     value: string
   ) {
-    const setters = { personality_types: setPersonalityTypes, qualities: setQualities, hobbies: setHobbies }
-    const getters = { personality_types: personalityTypes, qualities: qualities, hobbies: hobbies }
+    const setters = { personality_types: setPersonalityTypes, qualities: setQualities, interests: setInterests }
+    const getters = { personality_types: personalityTypes, qualities: qualities, interests: interests }
     const current = getters[field]
     setters[field](current.includes(value) ? current.filter((v) => v !== value) : [...current, value])
   }
@@ -98,7 +98,7 @@ function NewSearchContent() {
     if (!requiresGenderSelection(value)) setLookingForGender("")
   }
 
-  function addCustom(field: "looking_for" | "personality_types" | "qualities" | "hobbies") {
+  function addCustom(field: "looking_for" | "personality_types" | "qualities" | "interests") {
     const value = customInputs[field]?.trim()
     if (!value) return
     setCustomOptions((prev) => ({ ...prev, [field]: [...(prev[field] ?? []), value] }))
@@ -126,7 +126,7 @@ function NewSearchContent() {
         data = { type: "workplace", company_name: trim(f.company_name), pin_code: trim(f.pin_code), department: trim(f.department) }
         break
       case "general":
-        data = { type: "general", pin_code: trim(f.pin_code), building_name: trim(f.building_name) }
+        data = { type: "general", pin_code: trim(f.pin_code), building_name: trim(f.building_name), state: trim(f.state) }
         break
     }
     const hasAtLeastOneField = Object.entries(data).some(([key, value]) => key !== "type" && value.trim().length > 0)
@@ -147,7 +147,7 @@ function NewSearchContent() {
         !!lookingFor ||
         personalityTypes.length > 0 ||
         qualities.length > 0 ||
-        hobbies.length > 0 ||
+        interests.length > 0 ||
         !!taggedAddress
 
       if (mode === "filter" && !hasAnyFilter) {
@@ -171,7 +171,7 @@ function NewSearchContent() {
             looking_for_gender: requiresGenderSelection(lookingFor) ? (lookingForGender || null) : null,
             personality_types: personalityTypes,
             qualities,
-            hobbies,
+            interests,
             tagged_address: taggedAddress,
             last_searched_at: new Date().toISOString(),
           }
@@ -203,7 +203,7 @@ function NewSearchContent() {
         } else {
           const { data: existingFilters } = await supabase
             .from("searches")
-            .select("id, age, gender, looking_for, personality_types, qualities, hobbies, tagged_address")
+            .select("id, age, gender, looking_for, personality_types, qualities, interests, tagged_address")
             .eq("user_id", user.id)
             .eq("search_type", "filter")
 
@@ -223,7 +223,7 @@ function NewSearchContent() {
             looking_for: searchData.looking_for ?? null,
             personality_types: normalizeArray(searchData.personality_types),
             qualities: normalizeArray(searchData.qualities),
-            hobbies: normalizeArray(searchData.hobbies),
+            interests: normalizeArray(searchData.interests),
             tagged_address: normalizeAddress(searchData.tagged_address),
           })
 
@@ -234,7 +234,7 @@ function NewSearchContent() {
             looking_for: string | null
             personality_types?: string[] | null
             qualities?: string[] | null
-            hobbies?: string[] | null
+            interests?: string[] | null
             tagged_address?: TaggedAddress | null
           }) => {
             const itemSignature = JSON.stringify({
@@ -243,7 +243,7 @@ function NewSearchContent() {
               looking_for: item.looking_for ?? null,
               personality_types: normalizeArray(item.personality_types),
               qualities: normalizeArray(item.qualities),
-              hobbies: normalizeArray(item.hobbies),
+              interests: normalizeArray(item.interests),
               tagged_address: normalizeAddress(item.tagged_address as TaggedAddress | null),
             })
             return itemSignature === currentSignature
@@ -425,15 +425,15 @@ function NewSearchContent() {
             <CustomOptionInput field="qualities" value={customInputs.qualities ?? ""} onChange={(v) => setCustomInputs((p) => ({ ...p, qualities: v }))} onAdd={() => addCustom("qualities")} />
           </div>
 
-          {/* Hobbies */}
+          {/* Interests */}
           <div>
-            <label className="label">Hobbies</label>
+            <label className="label">Interests</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {getDisplayOpts("hobbies", hobbies).map((opt) => (
-                <button key={opt} className={`tag ${hobbies.includes(opt) ? "selected" : ""}`} onClick={() => toggleMulti("hobbies", opt)}>{opt}</button>
+              {getDisplayOpts("interests", interests).map((opt) => (
+                <button key={opt} className={`tag ${interests.includes(opt) ? "selected" : ""}`} onClick={() => toggleMulti("interests", opt)}>{opt}</button>
               ))}
             </div>
-            <CustomOptionInput field="hobbies" value={customInputs.hobbies ?? ""} onChange={(v) => setCustomInputs((p) => ({ ...p, hobbies: v }))} onAdd={() => addCustom("hobbies")} />
+            <CustomOptionInput field="interests" value={customInputs.interests ?? ""} onChange={(v) => setCustomInputs((p) => ({ ...p, interests: v }))} onAdd={() => addCustom("interests")} />
           </div>
         </div>
       )}

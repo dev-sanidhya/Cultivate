@@ -6,7 +6,7 @@ import { Plus, Trash2, Check, X, Pencil, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import type { FieldOption, CustomOptionRequest } from "@/types"
 
-const FIELDS = ["looking_for", "personality_types", "qualities", "hobbies"]
+const FIELDS = ["looking_for", "personality_types", "qualities", "interests", "weakness", "disinterests"]
 
 export default function AdminFieldsPage() {
   const [options, setOptions] = useState<FieldOption[]>([])
@@ -75,7 +75,7 @@ export default function AdminFieldsPage() {
       const { data: card } = await supabase.from("cards").select("*").eq("id", req.card_id).single()
       const rejectedCardId = card?.card_id ?? req.card_id
       if (card) {
-        const field = req.field_name as "personality_types" | "qualities" | "hobbies" | "looking_for"
+        const field = req.field_name as "personality_types" | "qualities" | "interests" | "weakness" | "disinterests" | "looking_for"
         if (field === "looking_for") {
           await supabase.from("cards").update({ looking_for: null }).eq("id", req.card_id)
         } else {
@@ -113,7 +113,7 @@ export default function AdminFieldsPage() {
       if (action === "modify" && finalValue !== req.value) {
         const { data: card } = await supabase.from("cards").select("*").eq("id", req.card_id).single()
         if (card) {
-          const field = req.field_name as "personality_types" | "qualities" | "hobbies" | "looking_for"
+          const field = req.field_name as "personality_types" | "qualities" | "interests" | "weakness" | "disinterests" | "looking_for"
           if (field === "looking_for") {
             await supabase.from("cards").update({ looking_for: finalValue }).eq("id", req.card_id)
           } else {

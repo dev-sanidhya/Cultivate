@@ -13,11 +13,15 @@ const demoCard: Card = {
   looking_for: "Co-founder",
   looking_for_gender: null,
   qualities: ["Funny", "Pragmatic"],
-  hobbies: ["Coding", "Travelling"],
+  interests: ["Coding", "Travelling"],
+  weakness: [],
+  disinterests: [],
   note: "acha",
   is_public: true,
   is_closed: false,
   closed_with_profile_id: null,
+  closed_with_card_id: null,
+  closure_type: null,
   chat_enabled: false,
   view_count: 0,
   save_count: 0,
@@ -149,7 +153,7 @@ export default async function LandingPage() {
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20 }}>
             {[
-              { n: "01", title: "Create your card", desc: "Fill in your personality type, hobbies, qualities, and what you're looking for. Be honest - the right people will find you." },
+              { n: "01", title: "Create your card", desc: "Fill in your personality type, interests, qualities, and what you're looking for. Be honest - the right people will find you." },
               { n: "02", title: "Search or get found", desc: "Run a filtered search to find people who match your vibe, or share your card ID and let them come to you." },
               { n: "03", title: "Unlock chat, connect", desc: "When you find someone interesting, unlock chat for your category. Exchange messages. Build something real." },
             ].map(({ n, title, desc }) => (

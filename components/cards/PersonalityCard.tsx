@@ -238,11 +238,23 @@ export function PersonalityCard({
         </div>
       )}
 
-      {/* Qualities & Hobbies */}
-      <div style={{ marginBottom: 12 }}>
-        <SingleLineTagSection title="Qualities" tags={card.qualities ?? []} />
-        <SingleLineTagSection title="Hobbies" tags={card.hobbies ?? []} />
-      </div>
+      {/* Qualities, Weakness, Interests, Disinterests - only rendered when non-empty */}
+      {(() => {
+        const tagSections: { title: string; tags: string[] }[] = [
+          { title: "Qualities", tags: card.qualities ?? [] },
+          { title: "Weakness", tags: card.weakness ?? [] },
+          { title: "Interests", tags: card.interests ?? [] },
+          { title: "Disinterests", tags: card.disinterests ?? [] },
+        ].filter((s) => s.tags.length > 0)
+        if (tagSections.length === 0) return null
+        return (
+          <div style={{ marginBottom: 12 }}>
+            {tagSections.map((s) => (
+              <SingleLineTagSection key={s.title} title={s.title} tags={s.tags} />
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Note */}
       {card.note && (

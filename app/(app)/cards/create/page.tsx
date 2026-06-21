@@ -61,7 +61,9 @@ export default function CreateCardPage() {
     looking_for: string
     looking_for_gender: Gender | null
     qualities: string[]
-    hobbies: string[]
+    interests: string[]
+    weakness: string[]
+    disinterests: string[]
     note: string
   }
 
@@ -99,7 +101,9 @@ export default function CreateCardPage() {
         looking_for: data.looking_for,
         looking_for_gender: data.looking_for_gender,
         qualities: data.qualities,
-        hobbies: data.hobbies,
+        interests: data.interests,
+        weakness: data.weakness,
+        disinterests: data.disinterests,
         note: data.note || null,
         is_public: true,
       }).select().single()

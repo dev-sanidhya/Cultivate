@@ -20,7 +20,9 @@ interface CardFormData {
   looking_for: string
   looking_for_gender: Gender | null
   qualities: string[]
-  hobbies: string[]
+  interests: string[]
+  weakness: string[]
+  disinterests: string[]
   note: string
 }
 
@@ -109,7 +111,9 @@ export default function EditCardPage() {
         looking_for: hasChats ? card!.looking_for : data.looking_for,
         looking_for_gender: hasChats ? card!.looking_for_gender : data.looking_for_gender,
         qualities: data.qualities,
-        hobbies: data.hobbies,
+        interests: data.interests,
+        weakness: data.weakness,
+        disinterests: data.disinterests,
         note: data.note || null,
         updated_at: new Date().toISOString(),
       }).eq("id", cardId)
@@ -228,7 +232,9 @@ export default function EditCardPage() {
           looking_for: card.looking_for,
           looking_for_gender: card.looking_for_gender,
           qualities: card.qualities,
-          hobbies: card.hobbies,
+          interests: card.interests,
+          weakness: card.weakness,
+          disinterests: card.disinterests,
           note: card.note ?? "",
         }}
         gender={gender}

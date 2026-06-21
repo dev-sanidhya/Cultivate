@@ -161,9 +161,9 @@ function SearchResultsContent() {
         if (qualities.length) {
           query = query.overlaps("qualities", qualities)
         }
-        const hobbies = normalizeSelectedValues(searchData?.hobbies)
-        if (hobbies.length) {
-          query = query.overlaps("hobbies", hobbies)
+        const interests = normalizeSelectedValues(searchData?.interests)
+        if (interests.length) {
+          query = query.overlaps("interests", interests)
         }
 
         const activeAddressFilter = getActiveAddressFilter(searchData?.tagged_address)
@@ -211,9 +211,9 @@ function SearchResultsContent() {
           if (qualities.length) {
             fallbackQuery.overlaps("qualities", qualities)
           }
-          const hobbies = normalizeSelectedValues(searchData?.hobbies)
-          if (hobbies.length) {
-            fallbackQuery.overlaps("hobbies", hobbies)
+          const interests = normalizeSelectedValues(searchData?.interests)
+          if (interests.length) {
+            fallbackQuery.overlaps("interests", interests)
           }
 
           const activeAddressFilter = getActiveAddressFilter(searchData?.tagged_address)
