@@ -233,8 +233,11 @@ function SearchResultsContent() {
       let resultCards = (cardsData ?? []) as Card[]
 
       // S-Prioritize injection: S-prioritized cards surface at the top when only
-      // gender + Looking For type + Looking For gender match, ignoring other filters.
-      if (searchData?.search_type === "filter") {
+      // gender + Looking For type + Looking For gender match, ignoring all other
+      // filters. Filter searches only, and only when a Looking For is specified
+      // (the field that defines the match), to avoid flooding unrelated categories.
+      const sLookingFor = searchData?.looking_for?.trim()
+      if (searchData?.search_type === "filter" && sLookingFor) {
         const { data: sActive } = await supabase
           .from("card_prioritizations")
           .select("card_id")
@@ -243,20 +246,29 @@ function SearchResultsContent() {
 
         const sCardIds = (sActive ?? []).map((row: { card_id: string }) => row.card_id)
         if (sCardIds.length > 0) {
-          let sQuery = supabase
-            .from("cards")
-            .select("*, profile:profiles(id, first_name, last_name, photo_url)")
-            .eq("is_public", true)
-            .eq("is_closed", false)
-            .in("id", sCardIds)
+          // Build the exact 3-field match, with a fallback that drops the profiles
+          // embed for environments where the cards->profiles relation is unavailable
+          // (mirrors the main query) so S cards still inject.
+          const applyFilters = <T extends { ilike: (c: string, v: string) => T; eq: (c: string, v: string) => T }>(q: T): T => {
+            let next = q.ilike("looking_for", sLookingFor)
+            const gender = searchData?.gender?.trim()
+            if (gender) next = next.ilike("gender", gender)
+            if (searchData?.looking_for_gender) next = next.eq("looking_for_gender", searchData.looking_for_gender)
+            return next
+          }
 
-          const gender = searchData?.gender?.trim()
-          if (gender) sQuery = sQuery.ilike("gender", gender)
-          const lookingFor = searchData?.looking_for?.trim()
-          if (lookingFor) sQuery = sQuery.ilike("looking_for", lookingFor)
-          if (searchData?.looking_for_gender) sQuery = sQuery.eq("looking_for_gender", searchData.looking_for_gender)
+          const base = () =>
+            supabase.from("cards").select("*, profile:profiles(id, first_name, last_name, photo_url)")
+              .eq("is_public", true).eq("is_closed", false).in("id", sCardIds)
 
-          const { data: sCards } = await sQuery
+          let { data: sCards, error: sError } = await applyFilters(base())
+          if (sError) {
+            const fallback = supabase.from("cards").select("*")
+              .eq("is_public", true).eq("is_closed", false).in("id", sCardIds)
+            const res = await applyFilters(fallback)
+            sCards = res.data
+          }
+
           const existingIds = new Set(resultCards.map((c) => c.id))
           for (const sc of (sCards ?? []) as Card[]) {
             if (!existingIds.has(sc.id)) resultCards.push(sc)
