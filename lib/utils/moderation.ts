@@ -49,6 +49,30 @@ function hasPhoneLikeNumber(text: string): boolean {
   return digitRuns.some((match) => match.replace(/\D/g, "").length >= 7)
 }
 
+// Custom-input fields (tagged addresses, custom options) may only contain
+// letters, numbers, and spaces - no symbols, emojis, URLs, etc.
+const DISALLOWED_CHAR_PATTERN = /[^a-zA-Z0-9\s]/
+
+export function containsDisallowedCharacters(text: string): boolean {
+  return DISALLOWED_CHAR_PATTERN.test(text)
+}
+
+/**
+ * Run the same contact-detail checks used for the Note on any custom-entered
+ * value (tagged address fields, custom options, future custom fields).
+ */
+export function moderateCustomValue(text: string, fieldLabel = "this field"): ModerationResult {
+  if (!text || !text.trim()) return { blocked: false }
+  if (containsDisallowedCharacters(text)) {
+    return { blocked: true, reason: `Only letters, numbers, and spaces are allowed in ${fieldLabel}.` }
+  }
+  const result = moderateNote(text)
+  if (result.blocked) {
+    return { blocked: true, reason: `Contact details are not allowed in ${fieldLabel}.` }
+  }
+  return { blocked: false }
+}
+
 export function moderateNote(text: string): ModerationResult {
   if (!text) return { blocked: false }
 

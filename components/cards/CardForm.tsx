@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { X } from "lucide-react"
 import { toast } from "sonner"
-import { moderateNote } from "@/lib/utils/moderation"
+import { moderateNote, moderateCustomValue } from "@/lib/utils/moderation"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { TaggedAddressFieldGroup } from "@/components/cards/TaggedAddressFieldGroup"
 import { requiresGenderSelection } from "@/lib/lookingFor"
@@ -199,6 +199,23 @@ export function CardForm({
     if (requiresGenderSelection(lookingFor) && !lookingForGender) {
       toast.error("Select the gender you're looking for")
       return
+    }
+
+    // Validate all custom-entered values (tagged address fields, custom options):
+    // no contact details, and only letters/numbers/spaces. State (dropdown) and
+    // PIN are excluded - State is a fixed list, PIN is digits already.
+    const customValues: string[] = [
+      ...Object.entries(addressFields)
+        .filter(([k]) => k !== "state")
+        .map(([, v]) => v),
+      ...pendingCustomOptions.map((o) => o.value),
+    ]
+    for (const value of customValues) {
+      const check = moderateCustomValue(value, "address and custom fields")
+      if (check.blocked) {
+        toast.error(check.reason ?? "Invalid value in a custom field.")
+        return
+      }
     }
 
     const noteModeration = moderateNote(note)
