@@ -82,10 +82,22 @@ export default function AdminConfigPage() {
     setPlans((prev) => [...prev, data as PrioritizationPlan])
   }
 
-  async function updatePlan(id: string, field: "duration_days" | "price", value: number) {
-    const supabase = createClient()
-    await supabase.from("prioritization_plans").update({ [field]: value }).eq("id", id)
+  // Edit locally; persisted only when the admin clicks Save (per spec).
+  function updatePlan(id: string, field: "duration_days" | "price", value: number) {
     setPlans((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)))
+  }
+
+  async function savePlans(planType: PrioritizationType) {
+    setSaving(true)
+    const supabase = createClient()
+    for (const plan of plans.filter((p) => p.plan_type === planType)) {
+      await supabase
+        .from("prioritization_plans")
+        .update({ duration_days: plan.duration_days, price: plan.price })
+        .eq("id", plan.id)
+    }
+    toast.success("Prioritization plans saved")
+    setSaving(false)
   }
 
   async function deletePlan(id: string) {
@@ -111,10 +123,22 @@ export default function AdminConfigPage() {
     setSaving(false)
   }
 
-  async function updatePricing(id: string, field: "price" | "duration_days", value: number) {
-    const supabase = createClient()
-    await supabase.from("chat_pricing").update({ [field]: value }).eq("id", id)
+  // Edit locally; persisted only when the admin clicks Save (per spec).
+  function updatePricing(id: string, field: "price" | "duration_days", value: number) {
     setPricing((prev) => prev.map((p) => p.id === id ? { ...p, [field]: value } : p))
+  }
+
+  async function savePricing() {
+    setSaving(true)
+    const supabase = createClient()
+    for (const p of pricing.filter((row) => verifiedCategories.includes(row.looking_for_category))) {
+      await supabase
+        .from("chat_pricing")
+        .update({ price: p.price, duration_days: p.duration_days })
+        .eq("id", p.id)
+    }
+    toast.success("Chat pricing saved")
+    setSaving(false)
   }
 
   if (loading) return <div style={{ padding: 40, color: "var(--color-text-secondary)" }}>Loading...</div>
@@ -138,6 +162,21 @@ export default function AdminConfigPage() {
               />
             </div>
           ))}
+
+          {/* Help Your Friends Join section toggle (Home page) */}
+          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={(configs.help_friends_join_enabled ?? "true") !== "false"}
+              onChange={(e) =>
+                setConfigs((p) => ({ ...p, help_friends_join_enabled: e.target.checked ? "true" : "false" }))
+              }
+              style={{ width: 18, height: 18 }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text)" }}>
+              Show &quot;Help Your Friends Join&quot; box on Home Page
+            </span>
+          </label>
         </div>
         <button
           onClick={saveConfig}
@@ -198,6 +237,13 @@ export default function AdminConfigPage() {
           </tbody>
         </table>
         <p style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 12 }}>Set price to 0 for free. Price is in rupees.</p>
+        <button
+          onClick={savePricing}
+          disabled={saving}
+          style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16, padding: "10px 20px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}
+        >
+          <Save size={16} /> {saving ? "Saving..." : "Save Pricing"}
+        </button>
       </div>
 
       {/* Card Prioritization Plans */}
@@ -262,6 +308,15 @@ export default function AdminConfigPage() {
                 ))}
               </tbody>
             </table>
+          )}
+          {plans.filter((p) => p.plan_type === planType).length > 0 && (
+            <button
+              onClick={() => savePlans(planType)}
+              disabled={saving}
+              style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16, padding: "10px 20px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}
+            >
+              <Save size={16} /> {saving ? "Saving..." : "Save Plans"}
+            </button>
           )}
         </div>
       ))}

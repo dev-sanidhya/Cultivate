@@ -85,6 +85,14 @@ export default async function HomePage() {
     )
   }
 
+  const { data: helpConfig } = await supabase
+    .from("platform_config")
+    .select("value")
+    .eq("key", "help_friends_join_enabled")
+    .maybeSingle()
+  // Defaults to enabled when the config row is missing.
+  const helpFriendsEnabled = (helpConfig?.value ?? "true") !== "false"
+
   return (
     <div className="page-container" style={{ paddingTop: 10 }}>
       <div style={{ marginBottom: 24 }}>
@@ -97,7 +105,8 @@ export default async function HomePage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {/* Upload Contacts Card */}
+        {/* Upload Contacts Card ("Help Your Friends Join") - admin-toggleable */}
+        {helpFriendsEnabled && (
         <Link href="/contacts" style={{ textDecoration: "none" }}>
           <div
             className="card"
@@ -137,6 +146,7 @@ export default async function HomePage() {
             </div>
           </div>
         </Link>
+        )}
 
         {/* Feedback Card */}
         <a
