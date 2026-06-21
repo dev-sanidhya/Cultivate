@@ -279,7 +279,14 @@ function PrioritizeView({ planType, onDone }: { planType: PrioritizationType; on
             .order("created_at", { ascending: false }),
         ])
         setPlans(planList)
-        setCards((cardData ?? []) as Card[])
+        const loadedCards = (cardData ?? []) as Card[]
+        setCards(loadedCards)
+        // Preselect the card passed from My Cards (?card=<id>), if present.
+        const preselectId = new URLSearchParams(window.location.search).get("card")
+        if (preselectId) {
+          const match = loadedCards.find((c) => c.id === preselectId)
+          if (match) setSelectedCard(match)
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to load plans")
       } finally {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
+import { Plus, Star } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
@@ -260,14 +260,26 @@ export default function CardsPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {cards.map((card) => (
-            <PersonalityCard
-              key={card.id}
-              card={card}
-              mode="own"
-              onUnlockChat={() => handleUnlockChat(card)}
-              onClose={() => handleCloseCard(card)}
-              onEdit={() => handleEditCard(card)}
-            />
+            <div key={card.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <PersonalityCard
+                card={card}
+                mode="own"
+                onUnlockChat={() => handleUnlockChat(card)}
+                onClose={() => handleCloseCard(card)}
+                onEdit={() => handleEditCard(card)}
+              />
+              <button
+                onClick={() => router.push(`/subscriptions?card=${card.id}`)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "10px 16px", background: "var(--color-primary-bg)", color: "var(--color-primary)",
+                  border: "1px solid var(--color-border)", borderRadius: 12, fontWeight: 600, fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                <Star size={15} /> Prioritize Card
+              </button>
+            </div>
           ))}
         </div>
       )}
