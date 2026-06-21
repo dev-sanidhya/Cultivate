@@ -2,13 +2,38 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Users, CreditCard, MessageCircle, Activity } from "lucide-react"
+import { Users, CreditCard, MessageCircle, Activity, IndianRupee, Star } from "lucide-react"
+
+interface FrequencyBuckets {
+  one: number
+  two: number
+  threePlus: number
+}
 
 interface Stats {
   total_users: number
   users_by_gender: { male: number; female: number; other: number }
   cards_by_looking_for: { category: string; total: number; chat_enabled: number; locked: number }[]
   visit_counts: { visits: number; count: number }[]
+  // Card Prioritization Analytics (#14)
+  prioritization_revenue: number
+  prioritization_by_category: { category: string; count: number }[]
+  prioritization_by_plan: { plan: string; count: number }[]
+  prioritization_user_frequency: FrequencyBuckets
+  // Chat unlock conversion by offer type (#29)
+  unlock_by_offer: { offer: string; count: number }[]
+  // Address tagging breakdown (#29)
+  address_by_type: { type: string; count: number }[]
+}
+
+function bucketize(countsByUser: Map<string, number>): FrequencyBuckets {
+  const b: FrequencyBuckets = { one: 0, two: 0, threePlus: 0 }
+  for (const n of countsByUser.values()) {
+    if (n === 1) b.one++
+    else if (n === 2) b.two++
+    else if (n >= 3) b.threePlus++
+  }
+  return b
 }
 
 export default function AdminStatsPage() {
@@ -24,11 +49,15 @@ export default function AdminStatsPage() {
         { data: profiles },
         { data: cards },
         { data: visits },
+        { data: priorities },
+        { data: unlocks },
       ] = await Promise.all([
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("profiles").select("gender"),
-        supabase.from("cards").select("looking_for, chat_enabled, is_closed"),
+        supabase.from("cards").select("looking_for, chat_enabled, is_closed, tagged_address"),
         supabase.from("visit_logs").select("user_id"),
+        supabase.from("card_prioritizations").select("user_id, plan_type, amount_paid, card:card_id(looking_for)"),
+        supabase.from("chat_unlocks").select("offer_type"),
       ])
 
       // Group by gender
@@ -59,11 +88,47 @@ export default function AdminStatsPage() {
         visitDist.set(key, (visitDist.get(key) ?? 0) + 1)
       }
 
+      // Card prioritization analytics
+      type PriorityRow = { user_id: string; plan_type: string; amount_paid: number; card: { looking_for: string } | { looking_for: string }[] | null }
+      const priorityRows = (priorities ?? []) as PriorityRow[]
+      let prioritizationRevenue = 0
+      const priorityByCategory = new Map<string, number>()
+      const priorityByPlan = new Map<string, number>()
+      const priorityByUser = new Map<string, number>()
+      for (const p of priorityRows) {
+        prioritizationRevenue += p.amount_paid ?? 0
+        const cardRel = Array.isArray(p.card) ? p.card[0] : p.card
+        const cat = cardRel?.looking_for
+        if (cat) priorityByCategory.set(cat, (priorityByCategory.get(cat) ?? 0) + 1)
+        priorityByPlan.set(p.plan_type, (priorityByPlan.get(p.plan_type) ?? 0) + 1)
+        priorityByUser.set(p.user_id, (priorityByUser.get(p.user_id) ?? 0) + 1)
+      }
+
+      // Chat unlock conversion by offer type
+      const unlockByOffer = new Map<string, number>()
+      for (const u of (unlocks ?? []) as { offer_type: string | null }[]) {
+        const key = u.offer_type ?? "no_offer"
+        unlockByOffer.set(key, (unlockByOffer.get(key) ?? 0) + 1)
+      }
+
+      // Address tagging breakdown
+      const addressByType = new Map<string, number>()
+      for (const c of cards ?? []) {
+        const ta = (c as { tagged_address: { type?: string } | null }).tagged_address
+        if (ta?.type) addressByType.set(ta.type, (addressByType.get(ta.type) ?? 0) + 1)
+      }
+
       setStats({
         total_users: totalUsers ?? 0,
         users_by_gender: genderCounts,
         cards_by_looking_for: Array.from(cardMap.entries()).map(([category, data]) => ({ category, ...data })),
         visit_counts: Array.from(visitDist.entries()).map(([visits, count]) => ({ visits, count })),
+        prioritization_revenue: prioritizationRevenue,
+        prioritization_by_category: Array.from(priorityByCategory.entries()).map(([category, count]) => ({ category, count })),
+        prioritization_by_plan: Array.from(priorityByPlan.entries()).map(([plan, count]) => ({ plan, count })),
+        prioritization_user_frequency: bucketize(priorityByUser),
+        unlock_by_offer: Array.from(unlockByOffer.entries()).map(([offer, count]) => ({ offer, count })),
+        address_by_type: Array.from(addressByType.entries()).map(([type, count]) => ({ type, count })),
       })
       setLoading(false)
     }
@@ -129,6 +194,66 @@ export default function AdminStatsPage() {
           })}
         </div>
       </div>
+
+      {/* Card Prioritization Analytics */}
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--color-text)", margin: "32px 0 16px" }}>Card Prioritization Analytics</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 20 }}>
+        <StatCard icon={<IndianRupee size={20} color="#10B981" />} label="Prioritization Revenue (₹)" value={Math.round((stats?.prioritization_revenue ?? 0) / 100)} color="#ECFDF5" />
+        <StatCard icon={<Star size={20} color="#F59E0B" />} label="Total Prioritizations" value={stats?.prioritization_by_category.reduce((s, c) => s + c.count, 0) ?? 0} color="#FFFBEB" />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
+        <BreakdownCard title="Prioritizations by Category" rows={(stats?.prioritization_by_category ?? []).map((r) => ({ label: r.category, value: r.count }))} />
+        <BreakdownCard title="Prioritizations by Plan" rows={(stats?.prioritization_by_plan ?? []).map((r) => ({ label: `${r.plan}-Prioritize`, value: r.count }))} />
+        <BreakdownCard
+          title="User Prioritization Frequency"
+          rows={[
+            { label: "Exactly 1 time", value: stats?.prioritization_user_frequency.one ?? 0 },
+            { label: "Exactly 2 times", value: stats?.prioritization_user_frequency.two ?? 0 },
+            { label: "3+ times", value: stats?.prioritization_user_frequency.threePlus ?? 0 },
+          ]}
+        />
+      </div>
+
+      {/* Conversion + Address */}
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--color-text)", margin: "32px 0 16px" }}>Conversion &amp; Address Tagging</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
+        <BreakdownCard
+          title="Chat Unlocks by Offer Type"
+          rows={(stats?.unlock_by_offer ?? []).map((r) => ({ label: offerLabel(r.offer), value: r.count }))}
+          showPercent
+        />
+        <BreakdownCard title="Cards by Tagged Address Type" rows={(stats?.address_by_type ?? []).map((r) => ({ label: capitalize(r.type), value: r.count }))} />
+      </div>
+    </div>
+  )
+}
+
+function offerLabel(key: string): string {
+  if (key === "no_offer") return "No Offer"
+  return key.split("_").map(capitalize).join(" ")
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function BreakdownCard({ title, rows, showPercent }: { title: string; rows: { label: string; value: number }[]; showPercent?: boolean }) {
+  const total = rows.reduce((s, r) => s + r.value, 0)
+  return (
+    <div className="card" style={{ padding: "20px" }}>
+      <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)", marginBottom: 16 }}>{title}</h2>
+      {rows.length === 0 ? (
+        <p style={{ fontSize: 13, color: "var(--color-text-muted)" }}>No data yet.</p>
+      ) : (
+        rows.map((r) => (
+          <div key={r.label} style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>{r.label}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text)" }}>
+              {r.value}{showPercent && total > 0 ? ` (${Math.round((r.value / total) * 100)}%)` : ""}
+            </span>
+          </div>
+        ))
+      )}
     </div>
   )
 }
