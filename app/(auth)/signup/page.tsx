@@ -43,7 +43,7 @@ export default function SignupPage() {
       const res = await fetch("/api/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, purpose: "signup" }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
