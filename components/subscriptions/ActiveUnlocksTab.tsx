@@ -1,9 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Spinner } from "@/components/ui/Spinner"
+import { PopupModal } from "@/components/ui/PopupModal"
 import { formatLookingFor } from "@/lib/lookingFor"
+import { formatUnlockDuration } from "@/lib/duration"
+import { resolveEffectiveUnlockPricing } from "@/lib/pricing"
+import { createCategoryUnlock } from "@/lib/subscriptions"
 import type { ChatUnlock } from "@/types"
 
 function remainingLabel(expiresAt: string): string {
@@ -19,22 +24,70 @@ function remainingLabel(expiresAt: string): string {
 export function ActiveUnlocksTab() {
   const [unlocks, setUnlocks] = useState<ChatUnlock[]>([])
   const [loading, setLoading] = useState(true)
+  const [extendTarget, setExtendTarget] = useState<ChatUnlock | null>(null)
+  const [extendInfo, setExtendInfo] = useState<{ price: number; totalDays: number; bonusDays: number } | null>(null)
+  const [extending, setExtending] = useState(false)
+
+  async function loadUnlocks() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+    const { data } = await supabase
+      .from("chat_unlocks")
+      .select("*")
+      .eq("user_id", user.id)
+      .gt("expires_at", new Date().toISOString())
+      .order("expires_at", { ascending: true })
+    setUnlocks((data ?? []) as ChatUnlock[])
+    setLoading(false)
+  }
 
   useEffect(() => {
-    const supabase = createClient()
-    void (async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      const { data } = await supabase
-        .from("chat_unlocks")
-        .select("*")
-        .eq("user_id", user.id)
-        .gt("expires_at", new Date().toISOString())
-        .order("expires_at", { ascending: true })
-      setUnlocks((data ?? []) as ChatUnlock[])
-      setLoading(false)
-    })()
+    void loadUnlocks()
   }, [])
+
+  async function openExtend(unlock: ChatUnlock) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const pricing = await resolveEffectiveUnlockPricing(supabase, user.id, unlock.looking_for_category)
+    setExtendInfo({ price: pricing.effectivePrice, totalDays: pricing.totalDurationDays, bonusDays: pricing.bonusDurationDays })
+    setExtendTarget(unlock)
+  }
+
+  async function confirmExtend() {
+    if (!extendTarget || !extendInfo) return
+    setExtending(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Please sign in again")
+      // Extension adds time on top of the current expiry (mock payment success).
+      await createCategoryUnlock(
+        supabase,
+        user.id,
+        extendTarget.looking_for_category,
+        extendTarget.target_gender,
+        extendInfo.totalDays,
+        {
+          offerType: null,
+          amountPaid: extendInfo.price,
+          baseDurationDays: extendInfo.totalDays - extendInfo.bonusDays,
+          bonusDurationDays: extendInfo.bonusDays,
+        },
+        extendTarget.expires_at,
+      )
+      toast.success("Unlock extended!")
+      setExtendTarget(null)
+      setExtendInfo(null)
+      setLoading(true)
+      await loadUnlocks()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to extend")
+    } finally {
+      setExtending(false)
+    }
+  }
 
   if (loading) {
     return <div style={{ display: "flex", justifyContent: "center", paddingTop: 40 }}><Spinner size={26} color="primary" /></div>
@@ -60,8 +113,32 @@ export function ActiveUnlocksTab() {
             Expires {new Date(u.expires_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
             {u.bonus_duration_days > 0 ? ` · includes ${u.bonus_duration_days}d bonus` : ""}
           </div>
+          <button
+            onClick={() => void openExtend(u)}
+            style={{ marginTop: 10, padding: "8px 14px", background: "var(--color-primary-bg)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+          >
+            Extend unlock time
+          </button>
         </div>
       ))}
+
+      <PopupModal
+        open={!!extendTarget}
+        tone="info"
+        title="Extend unlock"
+        confirmLabel={extending ? "Processing..." : "Pay & extend"}
+        onConfirm={() => { if (!extending) void confirmExtend() }}
+        onClose={() => { setExtendTarget(null); setExtendInfo(null) }}
+        message={
+          extendTarget && extendInfo ? (
+            <div style={{ textAlign: "left", fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+              Add <strong>{formatUnlockDuration(extendInfo.totalDays)}</strong> to your{" "}
+              <strong>{formatLookingFor(extendTarget.looking_for_category, extendTarget.target_gender)}</strong> unlock for{" "}
+              <strong>₹{extendInfo.price / 100}</strong>. The new time is added on top of your current expiry.
+            </div>
+          ) : null
+        }
+      />
     </div>
   )
 }
