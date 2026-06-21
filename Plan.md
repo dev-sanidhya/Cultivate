@@ -160,3 +160,57 @@ Eligibility (§3): viewer.profile.gender must equal counterpart.requiredViewerGe
 ## Progress log
 - All 10 phases implemented, typecheck + `next build` clean. Committed in small units.
 - Pending: apply migration to the (currently paused) live Supabase project.
+
+---
+
+# V2 Extra Features Build (in progress)
+
+Source: `Downloads/V-2 Extra Features.docx`. ~30 features + security audit. Reviewed with user; all
+clarifying questions answered. Building ALL at once (no phase gating), many small commits, SINGLE push at end.
+
+## Locked decisions (V2)
+1. OTP limit: per phone number (primary) + IP (secondary). 5/hour rolling, 20/24h, 60s cooldown.
+2. S-Prioritize injection: FILTER searches only, EXACT 3-field match (gender + looking_for + looking_for_gender),
+   ignore all other filters. No complementary special-pair matching in filter search (flagged for later).
+3. Card closure: card-to-card mapping. "Associated" = cards chatted with through that specific card.
+   Reopen only directly-closed cards (not linked/merged).
+4. Offers: Welcome countdown starts at signup. Offers REUSABLE until timer ends (not consumed per use).
+   Durations expressed in hours/days. Card-Creation offer: fresh 60+ char card starts a new window; a second
+   qualifying card RESTARTS the timer; edits never re-arm. Occasional = global wall-clock window.
+   Multiple active: highest discount + highest bonus per category, computed independently.
+5. Hobbies -> Interests is a pure rename. Added Weakness + Disinterests fields.
+6. Card scaling: zoom-style transform, whole card as one scalable unit.
+7. Notification Assistance list: recomputed on admin page load/refresh only (no cron). Eligibility window
+   7h-4h before offer expiry. Counts deleted permanently when user leaves window.
+8. Data wipe: dev DB, no real users. Wipe all user data except admin_users, run as part of V2 migration.
+9. Storage: proper Supabase Storage bucket for banner/offer images (`banners` bucket).
+
+## V2 DB artifacts
+- `supabase/v2-features-migration.sql` - apply to live DB (currently paused project ngijqnojxrxdlsobxrlw).
+- `supabase/v2-wipe-user-data.sql` - run AFTER migration to reset user data.
+- `schema.sql` kept in sync (authoritative).
+- New tables: banner_sections, banner_images, otp_requests, card_closures, offers,
+  offer_category_benefits, user_offers, notification_assist_counts.
+- New columns: cards(interests rename, weakness, disinterests, closed_with_card_id, closure_type);
+  searches(interests rename, weakness, disinterests); field_options(is_verified);
+  notifications(event_at); chat_unlocks(offer_id, offer_type, amount_paid, base/bonus_duration_days);
+  card_prioritizations(amount_paid). GeneralAddress gains `state`.
+
+## V2 commit progress
+- [x] Add V2 schema migration and wipe (migration + schema sync + wipe script)
+- [x] Extend types for V2 schema
+- [x] Rename hobbies->interests, add Weakness/Disinterests fields, State/UT dropdown (#18, #13 partial)
+- [ ] Remaining ~27 features (see doc): home banners(#1), OTP limit(#2), note-length gate(#3),
+  notif timestamp(#4), swipe-from-note(#5), note WYSIWYG(#6), S-prioritize fix(#7), reopen(#8),
+  chat fixes(#9), remove like/save(#10), prioritize button(#11), always-show location(#12),
+  card prioritization stats(#14), card-id closure(#15), help-friends toggle(#16), dup account(#17),
+  card display compaction(#18 done-fields/pending-compaction), address perf(#19), responsive scaling(#20),
+  hide hidden cats on pricing(#21), months display(#22), pricing save button(#23), offers system(#24),
+  unlock extension(#25), offer countdown(#26), pricing UI(#27), 2-tab unlock(#28), stats enhancements(#29),
+  contact validation all fields(#30), default unlock pricing(#31), stats redesign(#32),
+  notif assist page(#33), security audit(#34).
+
+## V2 notes
+- node_modules was NOT installed initially; ran `npm install` (370 pkgs) to enable typecheck/build.
+- Typecheck after each cluster via `node ./node_modules/typescript/lib/tsc.js --noEmit`.
+- Live Supabase project still needs restoring + migration applied before runtime verification possible.
