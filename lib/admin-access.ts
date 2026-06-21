@@ -12,7 +12,10 @@ export const ADMIN_PAGES = [
   { key: "fields", label: "Card Fields", href: "/admin/fields" },
   { key: "contacts", label: "Contact Status", href: "/admin/contacts" },
   { key: "config", label: "Platform Config", href: "/admin/config" },
+  { key: "offers", label: "Offers", href: "/admin/offers" },
+  { key: "banners", label: "Home Banners", href: "/admin/banners" },
   { key: "notifications", label: "Send Notifications", href: "/admin/notifications" },
+  { key: "notif_assist", label: "Notification Assistance", href: "/admin/notif-assist" },
   { key: "access", label: "User Access", href: "/admin/access" },
 ] as const satisfies readonly {
   key: string

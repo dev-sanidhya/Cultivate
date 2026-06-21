@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import {
   BarChart2, Users, CreditCard, Phone, Settings,
-  Bell, Shield, LogOut, Menu, X, ChevronRight
+  Bell, Shield, LogOut, Menu, X, ChevronRight, Gift, Image as ImageIcon, Send
 } from "lucide-react"
 import {
   ADMIN_LOGIN_PATH,
@@ -21,7 +21,10 @@ function getAdminPageIcon(key: string) {
   if (key === "fields") return CreditCard
   if (key === "contacts") return Phone
   if (key === "config") return Settings
+  if (key === "offers") return Gift
+  if (key === "banners") return ImageIcon
   if (key === "notifications") return Bell
+  if (key === "notif_assist") return Send
   return Shield
 }
 
