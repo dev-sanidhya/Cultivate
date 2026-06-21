@@ -4,6 +4,7 @@ import { Lock } from "lucide-react"
 import type { Card } from "@/types"
 import type { Counterpart } from "@/lib/lookingFor"
 import { formatLookingFor } from "@/lib/lookingFor"
+import { formatUnlockDuration } from "@/lib/duration"
 
 interface ChatUnlockChoiceModalProps {
   open: boolean
@@ -113,7 +114,7 @@ export function ChatUnlockChoiceModal({
               Looking for: {newCardLabel}
             </div>
             <p style={{ margin: 0, fontSize: 14 }}>
-              Price: <strong>₹{price / 100}</strong> · Unlock period: <strong>{durationDays} days</strong>
+              Price: <strong>₹{price / 100}</strong> · Unlock period: <strong>{formatUnlockDuration(durationDays)}</strong>
             </p>
           </div>
         </div>

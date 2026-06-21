@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { Spinner } from "@/components/ui/Spinner"
 import { formatLookingFor, requiresGenderSelection } from "@/lib/lookingFor"
+import { formatUnlockDuration } from "@/lib/duration"
 import {
   fetchUnlockCategories,
   createCategoryUnlock,
@@ -199,7 +200,7 @@ function UnlockChatsView() {
             >
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text)" }}>{cat.looking_for}</span>
               <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                ₹{cat.price / 100} · {cat.durationDays} days
+                ₹{cat.price / 100} · {formatUnlockDuration(cat.durationDays)}
               </span>
             </button>
           )
@@ -243,7 +244,7 @@ function UnlockChatsView() {
               <Row label="Looking For" value={selected.looking_for} />
               {needsGender && <Row label="Gender" value={gender ? gender[0].toUpperCase() + gender.slice(1) : "-"} />}
               <Row label="Price" value={`₹${selected.price / 100}`} />
-              <Row label="Unlock period" value={`${selected.durationDays} days`} />
+              <Row label="Unlock period" value={formatUnlockDuration(selected.durationDays)} />
             </div>
           ) : null
         }
