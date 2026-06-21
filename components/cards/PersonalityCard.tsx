@@ -286,14 +286,6 @@ export function PersonalityCard({
             <Eye size={13} />
             <span>{card.view_count}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
-            <Heart size={13} />
-            <span>{card.like_count}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
-            <Bookmark size={13} />
-            <span>{card.save_count}</span>
-          </div>
           <button
             className="btn-ghost"
             style={{ padding: 6 }}

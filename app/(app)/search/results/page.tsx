@@ -13,7 +13,7 @@ import type { Card, CardInteraction, Search } from "@/types"
 import { createChatForCardPair } from "@/lib/chat"
 import { resolveChatStart, completeDirectUnlock, type ChatViewer } from "@/lib/chatFlow"
 import type { Counterpart } from "@/lib/lookingFor"
-import { adjustCardMetric, recordCardView } from "@/lib/cardMetrics"
+import { recordCardView } from "@/lib/cardMetrics"
 import { ageFromDateOfBirth } from "@/lib/utils/age"
 
 interface UnlockChoiceState {
@@ -339,10 +339,6 @@ function SearchResultsContent() {
         toast.error(error.message)
         return
       }
-      const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", -1)
-      if (metricError) {
-        toast.error(metricError.message)
-      }
       setInteractions((prev) => prev.filter((i) => i.id !== existing.id))
     } else {
       const { data, error } = await supabase.from("card_interactions").insert({
@@ -353,10 +349,6 @@ function SearchResultsContent() {
       if (error) {
         toast.error(error.message)
         return
-      }
-      const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", 1)
-      if (metricError) {
-        toast.error(metricError.message)
       }
       if (data) setInteractions((prev) => [...prev, data])
     }

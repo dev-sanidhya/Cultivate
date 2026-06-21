@@ -12,7 +12,6 @@ import { toast } from "sonner"
 import { createChatForCardPair } from "@/lib/chat"
 import { resolveChatStart, completeDirectUnlock, type ChatViewer } from "@/lib/chatFlow"
 import type { Counterpart } from "@/lib/lookingFor"
-import { adjustCardMetric } from "@/lib/cardMetrics"
 import { ageFromDateOfBirth } from "@/lib/utils/age"
 
 type Tab = "liked" | "saved"
@@ -88,12 +87,6 @@ export default function SavedPage() {
         toast.error(error.message)
         return
       }
-      if (type !== "read") {
-        const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", -1)
-        if (metricError) {
-          toast.error(metricError.message)
-        }
-      }
       setInteractions((prev) => prev.filter((i) => i.id !== existing.id))
       if (type === "like") setLikedCards((prev) => prev.filter((c) => c.id !== card.id))
       if (type === "save") setSavedCards((prev) => prev.filter((c) => c.id !== card.id))
@@ -109,13 +102,6 @@ export default function SavedPage() {
     if (error) {
       toast.error(error.message)
       return
-    }
-
-    if (type !== "read") {
-      const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", 1)
-      if (metricError) {
-        toast.error(metricError.message)
-      }
     }
 
     if (data) {

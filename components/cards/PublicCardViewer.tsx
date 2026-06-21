@@ -9,7 +9,6 @@ import { ChatCardPickerModal } from "@/components/chat/ChatCardPickerModal"
 import { ChatUnlockChoiceModal } from "@/components/chat/ChatUnlockChoiceModal"
 import { createChatForCardPair } from "@/lib/chat"
 import { resolveChatStart, completeDirectUnlock, type ChatViewer } from "@/lib/chatFlow"
-import { adjustCardMetric } from "@/lib/cardMetrics"
 import { ageFromDateOfBirth } from "@/lib/utils/age"
 import type { Counterpart } from "@/lib/lookingFor"
 import type { Card, CardInteraction } from "@/types"
@@ -89,10 +88,6 @@ export function PublicCardViewer({ card }: { card: Card }) {
         toast.error(error.message)
         return
       }
-      const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", -1)
-      if (metricError) {
-        toast.error(metricError.message)
-      }
       setInteractions((prev) => prev.filter((interaction) => interaction.id !== existing.id))
       return
     }
@@ -110,11 +105,6 @@ export function PublicCardViewer({ card }: { card: Card }) {
     if (error) {
       toast.error(error.message)
       return
-    }
-
-    const { error: metricError } = await adjustCardMetric(supabase, card.id, type === "like" ? "like_count" : "save_count", 1)
-    if (metricError) {
-      toast.error(metricError.message)
     }
 
     if (data) setInteractions((prev) => [...prev, data as CardInteraction])
