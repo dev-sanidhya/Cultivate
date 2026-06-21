@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Gender, PrioritizationPlan, PrioritizationType } from "@/types"
+import type { Gender, OfferType, PrioritizationPlan, PrioritizationType } from "@/types"
 import { enableChatForCategory } from "@/lib/chatFlow"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
@@ -38,21 +38,40 @@ export async function fetchUnlockCategories(supabase: SupabaseLike): Promise<Unl
   })
 }
 
-/** Record a category-based chat unlock (mock payment success) and enable matching cards. */
+export interface UnlockOfferInfo {
+  offerType: OfferType | null
+  amountPaid: number
+  baseDurationDays: number
+  bonusDurationDays: number
+}
+
+/**
+ * Record a category-based chat unlock (mock payment success) and enable matching cards.
+ * When `extendFromExpiry` is set, the new duration is added on top of an existing
+ * unlock's expiry (chat-unlock extension) instead of starting from now.
+ */
 export async function createCategoryUnlock(
   supabase: SupabaseLike,
   userId: string,
   category: string,
   gender: Gender | null,
   durationDays: number,
+  offer?: UnlockOfferInfo,
+  extendFromExpiry?: string | null,
 ) {
-  const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+  const startMs = extendFromExpiry ? new Date(extendFromExpiry).getTime() : Date.now()
+  const base = Math.max(startMs, Date.now())
+  const expiresAt = new Date(base + durationDays * 24 * 60 * 60 * 1000).toISOString()
   await supabase.from("chat_unlocks").insert({
     user_id: userId,
     card_id: null,
     looking_for_category: category,
     target_gender: gender,
     expires_at: expiresAt,
+    offer_type: offer?.offerType ?? null,
+    amount_paid: offer?.amountPaid ?? 0,
+    base_duration_days: offer?.baseDurationDays ?? durationDays,
+    bonus_duration_days: offer?.bonusDurationDays ?? 0,
   })
   await enableChatForCategory(supabase, userId, category, gender)
 }

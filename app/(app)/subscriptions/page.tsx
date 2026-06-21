@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { Spinner } from "@/components/ui/Spinner"
 import { formatLookingFor, requiresGenderSelection } from "@/lib/lookingFor"
-import { formatUnlockDuration } from "@/lib/duration"
+import { formatUnlockDuration, formatDurationWithBonus } from "@/lib/duration"
 import {
   fetchUnlockCategories,
   createCategoryUnlock,
@@ -17,7 +17,15 @@ import {
   createCardPrioritization,
   type UnlockCategory,
 } from "@/lib/subscriptions"
-import type { Card, Gender, PrioritizationPlan, PrioritizationType } from "@/types"
+import { fetchActiveOffersForUser, resolveCategoryBenefit } from "@/lib/offers"
+import { ActiveUnlocksTab } from "@/components/subscriptions/ActiveUnlocksTab"
+import type { Card, Gender, PrioritizationPlan, PrioritizationType, OfferType } from "@/types"
+
+interface CategoryOffer {
+  effectivePrice: number
+  bonusDays: number
+  offerType: OfferType | null
+}
 
 type View = "home" | "unlock" | { prioritize: PrioritizationType }
 
@@ -118,7 +126,9 @@ function OptionCard({
 }
 
 function UnlockChatsView() {
+  const [tab, setTab] = useState<"unlock" | "active">("unlock")
   const [categories, setCategories] = useState<UnlockCategory[]>([])
+  const [categoryOffers, setCategoryOffers] = useState<Record<string, CategoryOffer>>({})
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<UnlockCategory | null>(null)
   const [gender, setGender] = useState<Gender | "">("")
@@ -127,13 +137,36 @@ function UnlockChatsView() {
 
   useEffect(() => {
     const supabase = createClient()
-    fetchUnlockCategories(supabase)
-      .then(setCategories)
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load categories"))
-      .finally(() => setLoading(false))
+    void (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        const cats = await fetchUnlockCategories(supabase)
+        setCategories(cats)
+        if (user) {
+          const active = await fetchActiveOffersForUser(supabase, user.id)
+          const map: Record<string, CategoryOffer> = {}
+          for (const cat of cats) {
+            const benefit = resolveCategoryBenefit(active, cat.looking_for)
+            const effectivePrice = benefit.discountedPrice != null ? Math.min(benefit.discountedPrice, cat.price) : cat.price
+            map[cat.looking_for] = {
+              effectivePrice,
+              bonusDays: benefit.bonusDurationDays,
+              offerType: benefit.offerTypes[0] ?? null,
+            }
+          }
+          setCategoryOffers(map)
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to load categories")
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [])
 
   const needsGender = selected ? requiresGenderSelection(selected.looking_for) : false
+  const selectedOffer = selected ? categoryOffers[selected.looking_for] : undefined
+  const selectedHasOffer = !!selectedOffer && (selectedOffer.effectivePrice < (selected?.price ?? 0) || selectedOffer.bonusDays > 0)
 
   function openConfirm() {
     if (!selected) return
@@ -151,12 +184,19 @@ function UnlockChatsView() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Please sign in again")
+      const offer = categoryOffers[selected.looking_for]
       await createCategoryUnlock(
         supabase,
         user.id,
         selected.looking_for,
         needsGender ? (gender || null) : null,
-        selected.durationDays,
+        selected.durationDays + (offer?.bonusDays ?? 0),
+        {
+          offerType: offer?.offerType ?? null,
+          amountPaid: offer?.effectivePrice ?? selected.price,
+          baseDurationDays: selected.durationDays,
+          bonusDurationDays: offer?.bonusDays ?? 0,
+        },
       )
       setConfirmOpen(false)
       setSelected(null)
@@ -175,12 +215,36 @@ function UnlockChatsView() {
 
   return (
     <div>
+      {/* Two tabs: Unlock Chat + Active Unlocks */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {([["unlock", "Unlock Chat"], ["active", "Active Unlocks"]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            style={{
+              flex: 1, padding: "10px", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer",
+              border: `1px solid ${tab === key ? "var(--color-primary)" : "var(--color-border)"}`,
+              background: tab === key ? "var(--color-primary)" : "white",
+              color: tab === key ? "white" : "var(--color-text-secondary)",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "active" ? (
+        <ActiveUnlocksTab />
+      ) : (
+      <div>
       <p style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 14 }}>
         Choose a Looking For category to unlock chat for.
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {categories.map((cat) => {
           const isSelected = selected?.looking_for === cat.looking_for
+          const offer = categoryOffers[cat.looking_for]
+          const discounted = offer && offer.effectivePrice < cat.price
           return (
             <button
               key={cat.looking_for}
@@ -199,8 +263,22 @@ function UnlockChatsView() {
               }}
             >
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text)" }}>{cat.looking_for}</span>
-              <span style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                ₹{cat.price / 100} · {formatUnlockDuration(cat.durationDays)}
+              <span style={{ fontSize: 13, color: "var(--color-text-secondary)", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                <span>
+                  {discounted && (
+                    <span style={{ textDecoration: "line-through", color: "var(--color-text-muted)", marginRight: 6, fontSize: 12 }}>
+                      ₹{cat.price / 100}
+                    </span>
+                  )}
+                  <strong style={{ color: discounted ? "var(--color-accent)" : "inherit" }}>
+                    ₹{(offer?.effectivePrice ?? cat.price) / 100}
+                  </strong>
+                </span>
+                <span style={{ fontSize: 12 }}>
+                  {offer && offer.bonusDays > 0
+                    ? formatDurationWithBonus(cat.durationDays, offer.bonusDays)
+                    : formatUnlockDuration(cat.durationDays)}
+                </span>
               </span>
             </button>
           )
@@ -243,12 +321,28 @@ function UnlockChatsView() {
             <div style={{ display: "flex", flexDirection: "column", gap: 6, textAlign: "left" }}>
               <Row label="Looking For" value={selected.looking_for} />
               {needsGender && <Row label="Gender" value={gender ? gender[0].toUpperCase() + gender.slice(1) : "-"} />}
-              <Row label="Price" value={`₹${selected.price / 100}`} />
-              <Row label="Unlock period" value={formatUnlockDuration(selected.durationDays)} />
+              <Row
+                label="Price"
+                value={
+                  selectedHasOffer && selectedOffer && selectedOffer.effectivePrice < selected.price
+                    ? `₹${selectedOffer.effectivePrice / 100} (was ₹${selected.price / 100})`
+                    : `₹${selected.price / 100}`
+                }
+              />
+              <Row
+                label="Unlock period"
+                value={
+                  selectedOffer && selectedOffer.bonusDays > 0
+                    ? formatDurationWithBonus(selected.durationDays, selectedOffer.bonusDays)
+                    : formatUnlockDuration(selected.durationDays)
+                }
+              />
             </div>
           ) : null
         }
       />
+      </div>
+      )}
     </div>
   )
 }
