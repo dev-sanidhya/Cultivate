@@ -14,6 +14,7 @@ import { createChatForCardPair } from "@/lib/chat"
 import { resolveChatStart, completeDirectUnlock, type ChatViewer } from "@/lib/chatFlow"
 import type { Counterpart } from "@/lib/lookingFor"
 import { recordCardView } from "@/lib/cardMetrics"
+import { MIN_SEARCHABLE_NOTE_LENGTH } from "@/lib/cardRules"
 import { ageFromDateOfBirth } from "@/lib/utils/age"
 
 interface UnlockChoiceState {
@@ -262,6 +263,10 @@ function SearchResultsContent() {
           }
         }
       }
+
+      // Note-length eligibility: only cards with a Note of at least 60 characters
+      // are eligible to appear in search results (per spec).
+      resultCards = resultCards.filter((c) => (c.note?.trim().length ?? 0) >= MIN_SEARCHABLE_NOTE_LENGTH)
 
       // Fetch active prioritizations for the result set and sort.
       const cardIds = resultCards.map((c) => c.id)

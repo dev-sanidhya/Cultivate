@@ -8,6 +8,7 @@ import { PopupModal } from "@/components/ui/PopupModal"
 import { TaggedAddressFieldGroup } from "@/components/cards/TaggedAddressFieldGroup"
 import { requiresGenderSelection } from "@/lib/lookingFor"
 import { INDIAN_STATES_AND_UTS } from "@/lib/indianStates"
+import { MIN_SEARCHABLE_NOTE_LENGTH } from "@/lib/cardRules"
 import type { TaggedAddress, TaggedAddressType, Gender, FieldOption } from "@/types"
 
 const TARGET_GENDERS: Gender[] = ["male", "female", "other"]
@@ -545,6 +546,17 @@ export function CardForm({
         {noteError && (
           <p style={{ fontSize: 12, color: "var(--color-error)", marginTop: 4 }}>{noteError}</p>
         )}
+        {(() => {
+          const len = note.trim().length
+          const ok = len >= MIN_SEARCHABLE_NOTE_LENGTH
+          return (
+            <p style={{ fontSize: 11, marginTop: 4, color: ok ? "var(--color-success)" : "var(--color-text-muted)" }}>
+              {ok
+                ? `Note length looks good (${len} characters). Your card can appear in search results.`
+                : `Add at least ${MIN_SEARCHABLE_NOTE_LENGTH} characters in your Note for this card to appear in search results (${len}/${MIN_SEARCHABLE_NOTE_LENGTH}).`}
+            </p>
+          )
+        })()}
         <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
           Contact details (phone, handles, URLs) are not allowed.
         </p>
