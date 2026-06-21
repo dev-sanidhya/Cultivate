@@ -215,12 +215,29 @@ DONE (committed):
 - [x] #9.1/#9.2 Public card chat now uses centralized resolveChatStart (counterpart) - fixes wrong-category unlock prompt
 - [x] #7 Hardened S-prioritization injection (fallback embed, require looking_for)
 
-PENDING:
-- [ ] #1 home banners, #2 OTP limit, #5 swipe-from-note, #6 note WYSIWYG, #8 reopen,
-  #14 prioritization stats, #15 card-id closure, #17 dup account, #18-compaction(single-line collapse),
-  #19 address perf, #20 responsive scaling, #24 offers system, #25 unlock extension, #26 offer countdown,
-  #27 pricing UI, #28 2-tab unlock, #29 stats enhancements, #30 contact validation all fields,
-  #31 default unlock pricing, #32 stats redesign, #33 notif assist page, #34 security audit.
+- [x] #2 OTP rate limit (phone primary + IP guard, 60s/5h/20d) + #17 dup-account block on signup
+- [x] #15 Card-to-card closure (Card IDs from chat list) + card_closures mapping
+- [x] #8 Reopen only directly-closed cards (closure_type)
+- [x] #31 Default unlock pricing fallback (lib/pricing.ts) + admin config keys
+- [x] #19 Address suggestions via indexed tagged_address_suggestions table
+
+PENDING (heaviest clusters remain):
+- [ ] #1 home banners (admin manager + home render above help-friends box)
+- [ ] #5 swipe-from-note-area, #6 note editor WYSIWYG height, #18-compaction(single-line collapse)
+- [ ] #20 responsive zoom-scaling of card
+- [ ] #24 OFFERS SYSTEM (big): admin Offers page (3 tabs, category benefits, banners, scheduling),
+  runtime triggers (welcome@signup, card-creation@60char, occasional), multi-offer resolution
+  (max discount + max bonus per category), #26 countdowns (header + my cards), #27 pricing UI
+  (strikethrough + bonus), #28 two-tab unlock page (Unlock + Active Unlocks), #25 unlock extension.
+- [ ] #14 prioritization stats, #29 stats enhancements, #32 stats redesign (admin Statistics page)
+- [ ] #30 contact validation on all custom fields + char restriction
+- [ ] #33 notif-assist admin page (offer expiry 7h-4h window, export, counts)
+- [ ] #34 security audit (final pass)
+
+## Build state note
+- 19 features + foundation done in one session. ~19 commits on main, NOT pushed (single push at end).
+- Each commit typechecks clean via `node ./node_modules/typescript/lib/tsc.js --noEmit`.
+- Offers system (#24 cluster) is the largest remaining piece - tackle with fresh context.
 
 ## V2 notes
 - node_modules was NOT installed initially; ran `npm install` (370 pkgs) to enable typecheck/build.
