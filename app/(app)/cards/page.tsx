@@ -2,24 +2,25 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Star } from "lucide-react"
+import { Plus, Star, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
 import { Modal } from "@/components/ui/Modal"
 import { PopupModal } from "@/components/ui/PopupModal"
-import { Avatar } from "@/components/ui/Avatar"
 import { Spinner } from "@/components/ui/Spinner"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
 import { enableChatForCategory } from "@/lib/chatFlow"
-import type { Card, Profile } from "@/types"
+import type { Card } from "@/types"
 
-type ChatWithProfiles = {
-  initiator_id: string
-  initiator: Profile | null
-  recipient: Profile | null
+type CardRef = { id: string; card_id: string }
+type ChatCardRow = {
+  initiator_card_id: string | null
+  recipient_card_id: string | null
+  initiator: CardRef | CardRef[] | null
+  recipient: CardRef | CardRef[] | null
 }
 
 export default function CardsPage() {
@@ -27,8 +28,9 @@ export default function CardsPage() {
   const [cards, setCards] = useState<Card[]>([])
   const [loading, setLoading] = useState(true)
   const [closingCard, setClosingCard] = useState<Card | null>(null)
-  const [chatProfiles, setChatProfiles] = useState<Profile[]>([])
-  const [selectedProfile, setSelectedProfile] = useState<string | null>(null)
+  // Card IDs from this card's chat list that it can be closed/linked with.
+  const [closeCandidates, setCloseCandidates] = useState<{ id: string; card_id: string }[]>([])
+  const [selectedCloseCardId, setSelectedCloseCardId] = useState<string | null>(null)
   const [closeLoading, setCloseLoading] = useState(false)
   const [warningCount, setWarningCount] = useState(0)
   const [penaltyAmount, setPenaltyAmount] = useState("0")
@@ -176,26 +178,26 @@ export default function CardsPage() {
   }
 
   async function handleCloseCard(card: Card) {
-    // Load chat profiles for this user
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
+    // Find the Card IDs this card has chatted with (chats where this card is on
+    // either side); the user closes/links against the counterpart card.
     const { data: chats } = await supabase
       .from("chats")
-      .select("*, initiator:initiator_id(id, first_name, last_name, photo_url), recipient:recipient_id(id, first_name, last_name, photo_url)")
-      .or(`initiator_id.eq.${user!.id},recipient_id.eq.${user!.id}`)
+      .select("initiator_card_id, recipient_card_id, initiator:initiator_card_id(id, card_id), recipient:recipient_card_id(id, card_id)")
+      .or(`initiator_card_id.eq.${card.id},recipient_card_id.eq.${card.id}`)
 
-    const profiles: Profile[] = []
-    chats?.forEach((c: ChatWithProfiles) => {
-      const other = c.initiator_id === user!.id ? c.recipient : c.initiator
-      if (other && !profiles.find((p) => p.id === other.id)) {
-        profiles.push(other as Profile)
+    const candidates: { id: string; card_id: string }[] = []
+    for (const c of (chats ?? []) as ChatCardRow[]) {
+      const otherRel = c.initiator_card_id === card.id ? c.recipient : c.initiator
+      const other = Array.isArray(otherRel) ? otherRel[0] : otherRel
+      if (other && !candidates.find((x) => x.id === other.id)) {
+        candidates.push({ id: other.id, card_id: other.card_id })
       }
-    })
+    }
 
-    setChatProfiles(profiles)
+    setCloseCandidates(candidates)
     setClosingCard(card)
-    setSelectedProfile(null)
+    setSelectedCloseCardId(null)
   }
 
   async function confirmCloseCard(didntFind: boolean) {
@@ -203,16 +205,37 @@ export default function CardsPage() {
     setCloseLoading(true)
     const supabase = createClient()
 
+    const linkedCardId = didntFind ? null : selectedCloseCardId
     await supabase.from("cards").update({
       is_closed: true,
       is_public: false,
-      closed_with_profile_id: didntFind ? null : selectedProfile,
+      closed_with_card_id: linkedCardId,
+      closure_type: linkedCardId ? "linked" : "direct",
     }).eq("id", closingCard.id)
+
+    // Record the card-to-card closure mapping for analytics/validation.
+    if (linkedCardId) {
+      await supabase.from("card_closures").insert({
+        card_id: closingCard.id,
+        closed_with_card_id: linkedCardId,
+      })
+    }
 
     toast.success("Card closed.")
     setClosingCard(null)
     loadCards()
     setCloseLoading(false)
+  }
+
+  async function handleReopenCard(card: Card) {
+    const supabase = createClient()
+    await supabase.from("cards").update({
+      is_closed: false,
+      is_public: true,
+      closure_type: null,
+    }).eq("id", card.id)
+    toast.success("Card reopened.")
+    loadCards()
   }
 
   if (loading) {
@@ -268,17 +291,33 @@ export default function CardsPage() {
                 onClose={() => handleCloseCard(card)}
                 onEdit={() => handleEditCard(card)}
               />
-              <button
-                onClick={() => router.push(`/subscriptions?card=${card.id}`)}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  padding: "10px 16px", background: "var(--color-primary-bg)", color: "var(--color-primary)",
-                  border: "1px solid var(--color-border)", borderRadius: 12, fontWeight: 600, fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                <Star size={15} /> Prioritize Card
-              </button>
+              {!card.is_closed && (
+                <button
+                  onClick={() => router.push(`/subscriptions?card=${card.id}`)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "10px 16px", background: "var(--color-primary-bg)", color: "var(--color-primary)",
+                    border: "1px solid var(--color-border)", borderRadius: 12, fontWeight: 600, fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Star size={15} /> Prioritize Card
+                </button>
+              )}
+              {/* Reopen only cards that were closed directly (not linked/merged). */}
+              {card.is_closed && card.closure_type === "direct" && (
+                <button
+                  onClick={() => handleReopenCard(card)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "10px 16px", background: "var(--color-primary-bg)", color: "var(--color-primary)",
+                    border: "1px solid var(--color-border)", borderRadius: 12, fontWeight: 600, fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  <RotateCcw size={15} /> Make Public Again
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -294,26 +333,25 @@ export default function CardsPage() {
           Have you found the person you were looking for?
         </p>
 
-        {chatProfiles.length > 0 && (
+        {closeCandidates.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 12 }}>
-              Select a profile to lock with:
+              Select the Card ID you want to close this card with:
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {chatProfiles.map((p) => (
+              {closeCandidates.map((c) => (
                 <button
-                  key={p.id}
-                  onClick={() => setSelectedProfile(p.id)}
+                  key={c.id}
+                  onClick={() => setSelectedCloseCardId(c.id)}
                   style={{
                     display: "flex", alignItems: "center", gap: 12, padding: "12px",
-                    borderRadius: 12, border: `2px solid ${selectedProfile === p.id ? "var(--color-primary)" : "var(--color-border)"}`,
-                    background: selectedProfile === p.id ? "var(--color-primary-bg)" : "white",
+                    borderRadius: 12, border: `2px solid ${selectedCloseCardId === c.id ? "var(--color-primary)" : "var(--color-border)"}`,
+                    background: selectedCloseCardId === c.id ? "var(--color-primary-bg)" : "white",
                     cursor: "pointer",
                   }}
                 >
-                  <Avatar name={`${p.first_name} ${p.last_name}`} photoUrl={p.photo_url} size={36} />
-                  <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text)" }}>
-                    {p.first_name} {p.last_name}
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "var(--color-primary)", letterSpacing: 1 }}>
+                    #{c.card_id}
                   </span>
                 </button>
               ))}
@@ -322,13 +360,13 @@ export default function CardsPage() {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {selectedProfile && (
+          {selectedCloseCardId && (
             <button
               className="btn-primary"
               onClick={() => confirmCloseCard(false)}
               disabled={closeLoading}
             >
-              Lock with selected profile
+              Close with selected card
             </button>
           )}
           <button
