@@ -623,7 +623,9 @@ function SearchResultsContent() {
   const fullscreenDisplayIndex = activeFullscreenIndex ?? 0
   const card = filteredCards[activeCurrentIndex]
   const fullscreenCard = activeFullscreenIndex !== null ? filteredCards[activeFullscreenIndex] : null
-  const showTaggedLocation = !!search?.tagged_address && search.search_type === "filter"
+  // Always display a card's tagged location in search results when it has one,
+  // regardless of whether a location filter was entered (reverted per spec).
+  const showTaggedLocation = true
 
   useEffect(() => {
     if (activeFullscreenIndex === null) return

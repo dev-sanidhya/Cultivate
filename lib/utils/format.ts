@@ -15,7 +15,8 @@ export function formatTaggedAddress(addr: TaggedAddress): string {
         .filter(Boolean)
         .join(", ")
     case "general":
-      return [addr.building_name, addr.pin_code]
+      // Display order: Building/Premises, PIN Code, State/Union Territory.
+      return [addr.building_name, addr.pin_code, addr.state]
         .filter(Boolean)
         .join(", ")
     default:
