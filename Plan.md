@@ -197,18 +197,30 @@ clarifying questions answered. Building ALL at once (no phase gating), many smal
   card_prioritizations(amount_paid). GeneralAddress gains `state`.
 
 ## V2 commit progress
-- [x] Add V2 schema migration and wipe (migration + schema sync + wipe script)
+DONE (committed):
+- [x] V2 schema migration + schema sync + wipe script
 - [x] Extend types for V2 schema
-- [x] Rename hobbies->interests, add Weakness/Disinterests fields, State/UT dropdown (#18, #13 partial)
-- [ ] Remaining ~27 features (see doc): home banners(#1), OTP limit(#2), note-length gate(#3),
-  notif timestamp(#4), swipe-from-note(#5), note WYSIWYG(#6), S-prioritize fix(#7), reopen(#8),
-  chat fixes(#9), remove like/save(#10), prioritize button(#11), always-show location(#12),
-  card prioritization stats(#14), card-id closure(#15), help-friends toggle(#16), dup account(#17),
-  card display compaction(#18 done-fields/pending-compaction), address perf(#19), responsive scaling(#20),
-  hide hidden cats on pricing(#21), months display(#22), pricing save button(#23), offers system(#24),
-  unlock extension(#25), offer countdown(#26), pricing UI(#27), 2-tab unlock(#28), stats enhancements(#29),
-  contact validation all fields(#30), default unlock pricing(#31), stats redesign(#32),
-  notif assist page(#33), security audit(#34).
+- [x] #18 (fields) Rename hobbies->interests, add Weakness/Disinterests + non-empty display
+- [x] #13 State/UT dropdown in General Location + display order Building->PIN->State
+- [x] #10 Remove like/save counts (kept personal bookmarking)
+- [x] #12 Always show tagged location on search cards
+- [x] #22 Display unlock duration in months (multiples of 30)
+- [x] #4 Notification timestamp from event_at
+- [x] #16 Help-Your-Friends toggle (home + admin config)
+- [x] #23 Pricing/plan Save buttons (no immediate apply)
+- [x] #21 Hidden cats off pricing page (already satisfied by fetchUnlockCategories filter)
+- [x] #3 Note-length (60) search gate + CardForm live hint
+- [x] #11 Prioritize Card button on My Cards -> /subscriptions?card=
+- [x] #9.3 Gender shown in Looking For labels everywhere
+- [x] #9.1/#9.2 Public card chat now uses centralized resolveChatStart (counterpart) - fixes wrong-category unlock prompt
+- [x] #7 Hardened S-prioritization injection (fallback embed, require looking_for)
+
+PENDING:
+- [ ] #1 home banners, #2 OTP limit, #5 swipe-from-note, #6 note WYSIWYG, #8 reopen,
+  #14 prioritization stats, #15 card-id closure, #17 dup account, #18-compaction(single-line collapse),
+  #19 address perf, #20 responsive scaling, #24 offers system, #25 unlock extension, #26 offer countdown,
+  #27 pricing UI, #28 2-tab unlock, #29 stats enhancements, #30 contact validation all fields,
+  #31 default unlock pricing, #32 stats redesign, #33 notif assist page, #34 security audit.
 
 ## V2 notes
 - node_modules was NOT installed initially; ran `npm install` (370 pkgs) to enable typecheck/build.
