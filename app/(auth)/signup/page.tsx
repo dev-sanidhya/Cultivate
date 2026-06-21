@@ -7,6 +7,7 @@ import { ArrowLeft, Phone, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { normalizePhone } from "@/lib/utils/auth"
+import { startUserOfferWindow } from "@/lib/offers"
 import { Spinner } from "@/components/ui/Spinner"
 import type { Gender } from "@/types"
 
@@ -122,6 +123,9 @@ export default function SignupPage() {
         date_of_birth: dob,
       })
       if (profileError) throw profileError
+
+      // Welcome offer window starts at signup (if a Welcome offer is active).
+      await startUserOfferWindow(supabase, userId, "welcome")
 
       router.push("/home")
       toast.success("Welcome to Strefo!")

@@ -10,6 +10,8 @@ import { generateCardId } from "@/lib/utils/cardId"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { getErrorMessage } from "@/lib/utils/errors"
+import { startUserOfferWindow } from "@/lib/offers"
+import { noteMeetsSearchLength } from "@/lib/cardRules"
 import type { FieldOption, Gender } from "@/types"
 
 export default function CreateCardPage() {
@@ -136,6 +138,12 @@ export default function CreateCardPage() {
             } catch {}
           }
         }
+      }
+
+      // Card Creation offer: a card whose Note has 60+ chars starts (or restarts)
+      // the card-creation offer window. Editing later never re-arms it.
+      if (noteMeetsSearchLength(data.note)) {
+        await startUserOfferWindow(supabase, user!.id, "card_creation", card.id)
       }
 
       toast.success("Card created!")

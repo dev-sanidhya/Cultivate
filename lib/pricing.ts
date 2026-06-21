@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import type { OfferType } from "@/types"
+import { fetchActiveOffersForUser, resolveCategoryBenefit } from "@/lib/offers"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
 
@@ -7,6 +9,23 @@ export interface UnlockPricing {
   durationDays: number
   /** True when this came from the per-category configuration (admin-verified). */
   configured: boolean
+}
+
+export interface EffectiveUnlockPricing {
+  /** Regular (non-discounted) price in paise. */
+  basePrice: number
+  /** Price the user actually pays in paise (discounted when an offer applies). */
+  effectivePrice: number
+  /** Base unlock duration in days. */
+  baseDurationDays: number
+  /** Bonus days added by active offers. */
+  bonusDurationDays: number
+  /** Total duration granted (base + bonus). */
+  totalDurationDays: number
+  /** Whether an active offer is contributing a discount or bonus. */
+  hasOffer: boolean
+  /** Offer types contributing the benefit (for conversion tracking). */
+  offerTypes: OfferType[]
 }
 
 const DEFAULT_PRICE_KEY = "default_chat_unlock_price"
@@ -45,5 +64,35 @@ export async function resolveUnlockPricing(
     price: Number.isFinite(price) ? price : 0,
     durationDays: Number.isFinite(durationDays) && durationDays > 0 ? durationDays : 30,
     configured: false,
+  }
+}
+
+/**
+ * Effective unlock pricing for a user + category, applying any active offers
+ * (highest discount + highest bonus duration, independently).
+ */
+export async function resolveEffectiveUnlockPricing(
+  supabase: SupabaseLike,
+  userId: string,
+  category: string,
+): Promise<EffectiveUnlockPricing> {
+  const [base, activeOffers] = await Promise.all([
+    resolveUnlockPricing(supabase, category),
+    fetchActiveOffersForUser(supabase, userId),
+  ])
+
+  const benefit = resolveCategoryBenefit(activeOffers, category)
+  const effectivePrice =
+    benefit.discountedPrice != null ? Math.min(benefit.discountedPrice, base.price) : base.price
+  const bonus = benefit.bonusDurationDays
+
+  return {
+    basePrice: base.price,
+    effectivePrice,
+    baseDurationDays: base.durationDays,
+    bonusDurationDays: bonus,
+    totalDurationDays: base.durationDays + bonus,
+    hasOffer: benefit.discountedPrice != null || bonus > 0,
+    offerTypes: benefit.offerTypes,
   }
 }
