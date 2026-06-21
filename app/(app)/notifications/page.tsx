@@ -63,7 +63,7 @@ export default function NotificationsPage() {
             >
               <p style={{ fontSize: 14, color: "var(--color-text)", lineHeight: 1.5 }}>{n.message}</p>
               <p style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 4 }}>
-                {timeAgo(n.created_at)}
+                {timeAgo(n.event_at ?? n.created_at)}
               </p>
             </div>
           ))}

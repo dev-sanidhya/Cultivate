@@ -24,7 +24,7 @@ export async function runExpiryNotifications(supabase: SupabaseLike, userId: str
 async function notifyExpiredPrioritizations(supabase: SupabaseLike, userId: string) {
   const { data } = await supabase
     .from("card_prioritizations")
-    .select("id, prioritized_view_count, card:card_id(card_id)")
+    .select("id, prioritized_view_count, expires_at, card:card_id(card_id)")
     .eq("user_id", userId)
     .eq("expiry_notified", false)
     .lt("expires_at", nowIso())
@@ -32,6 +32,7 @@ async function notifyExpiredPrioritizations(supabase: SupabaseLike, userId: stri
   const rows = (data ?? []) as unknown as {
     id: string
     prioritized_view_count: number
+    expires_at: string
     card: { card_id: string } | { card_id: string }[] | null
   }[]
 
@@ -51,6 +52,8 @@ async function notifyExpiredPrioritizations(supabase: SupabaseLike, userId: stri
       user_id: userId,
       message,
       type: "prioritization_expired",
+      // Display time reflects when the prioritization actually ended, not delivery time.
+      event_at: row.expires_at,
       metadata: { card_id: humanId, views },
     })
   }
@@ -73,6 +76,7 @@ async function notifyExpiredChatUnlocks(supabase: SupabaseLike, userId: string) 
     id: string
     looking_for_category: string
     target_gender: Gender | null
+    expires_at: string
   }[]
 
   if (rows.length === 0) return
@@ -87,6 +91,8 @@ async function notifyExpiredChatUnlocks(supabase: SupabaseLike, userId: string) 
       user_id: userId,
       message,
       type: "chat_unlock_expired",
+      // Display time reflects when the unlock actually expired, not delivery time.
+      event_at: row.expires_at,
       metadata: { looking_for: row.looking_for_category, target_gender: row.target_gender },
     })
 
