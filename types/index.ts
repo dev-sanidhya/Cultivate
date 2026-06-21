@@ -28,6 +28,7 @@ export interface GeneralAddress {
   type: "general"
   pin_code: string
   building_name: string
+  state: string
 }
 
 export type TaggedAddress = CollegeAddress | SchoolAddress | WorkplaceAddress | GeneralAddress
@@ -56,11 +57,15 @@ export interface Card {
   looking_for: string
   looking_for_gender: Gender | null
   qualities: string[]
-  hobbies: string[]
+  interests: string[]
+  weakness: string[]
+  disinterests: string[]
   note: string | null
   is_public: boolean
   is_closed: boolean
   closed_with_profile_id: string | null
+  closed_with_card_id: string | null
+  closure_type: "direct" | "linked" | null
   chat_enabled: boolean
   view_count: number
   save_count: number
@@ -76,6 +81,7 @@ export interface FieldOption {
   value: string
   is_approved: boolean
   is_hidden: boolean
+  is_verified: boolean
   submitted_by: string | null
   created_at: string
 }
@@ -103,7 +109,9 @@ export interface Search {
   looking_for: string | null
   looking_for_gender: Gender | null
   qualities: string[]
-  hobbies: string[]
+  interests: string[]
+  weakness: string[]
+  disinterests: string[]
   new_cards_count: number
   last_searched_at: string
   created_at: string
@@ -152,6 +160,11 @@ export interface ChatUnlock {
   target_gender: Gender | null
   expires_at: string
   expiry_notified: boolean
+  offer_id: string | null
+  offer_type: OfferType | null
+  amount_paid: number
+  base_duration_days: number | null
+  bonus_duration_days: number
   created_at: string
 }
 
@@ -177,6 +190,7 @@ export interface Notification {
     | "general"
   metadata: Record<string, unknown> | null
   is_read: boolean
+  event_at: string | null
   created_at: string
 }
 
@@ -229,17 +243,86 @@ export interface CardPrioritization {
   plan_type: PrioritizationType
   plan_id: string | null
   prioritized_view_count: number
+  amount_paid: number
   starts_at: string
   expires_at: string
   expiry_notified: boolean
   created_at: string
 }
 
-export type CardField = "looking_for" | "personality_types" | "qualities" | "hobbies"
+export type CardField =
+  | "looking_for"
+  | "personality_types"
+  | "qualities"
+  | "interests"
+  | "weakness"
+  | "disinterests"
 
 export const CARD_FIELDS_WITH_OPTIONS: CardField[] = [
   "looking_for",
   "personality_types",
   "qualities",
-  "hobbies",
+  "interests",
+  "weakness",
+  "disinterests",
 ]
+
+export type OfferType = "welcome" | "card_creation" | "occasional"
+
+export interface BannerSection {
+  id: string
+  title: string
+  display_order: number
+  is_hidden: boolean
+  created_at: string
+  images?: BannerImage[]
+}
+
+export interface BannerImage {
+  id: string
+  section_id: string
+  image_url: string
+  link_url: string | null
+  display_order: number
+  is_hidden: boolean
+  created_at: string
+}
+
+export interface CardClosure {
+  id: string
+  card_id: string
+  closed_with_card_id: string | null
+  created_at: string
+}
+
+export interface Offer {
+  id: string
+  offer_type: OfferType
+  is_active: boolean
+  availability_days: number
+  availability_hours: number
+  banner_url: string | null
+  activation_at: string | null
+  created_at: string
+  updated_at: string
+  benefits?: OfferCategoryBenefit[]
+}
+
+export interface OfferCategoryBenefit {
+  id: string
+  offer_id: string
+  looking_for_category: string
+  discounted_price: number | null
+  bonus_duration_days: number
+}
+
+export interface UserOffer {
+  id: string
+  user_id: string
+  offer_id: string
+  offer_type: OfferType
+  trigger_card_id: string | null
+  starts_at: string
+  expires_at: string
+  created_at: string
+}
