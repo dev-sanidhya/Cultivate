@@ -10,6 +10,7 @@ import { PopupModal } from "@/components/ui/PopupModal"
 import { timeAgo } from "@/lib/utils/format"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
 import { markChatAsRead } from "@/lib/badges"
+import { formatLookingFor } from "@/lib/lookingFor"
 import type { Chat, ChatUnlock, Profile, Card, Message } from "@/types"
 
 interface ChatListItem {
@@ -322,7 +323,7 @@ export default function ChatPage() {
                       flexShrink: 0,
                     }}
                   >
-                    {theirCard?.looking_for}
+                    {theirCard ? formatLookingFor(theirCard.looking_for, theirCard.looking_for_gender) : ""}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Spinner } from "@/components/ui/Spinner"
 import type { Search as SearchType } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
+import { formatLookingFor } from "@/lib/lookingFor"
 
 export default function SearchPage() {
   const router = useRouter()
@@ -134,7 +135,7 @@ function SearchHistoryCard({
 
   const ageLabel = typeof search.age === "number" ? `${search.age}y` : null
   const genderLabel = search.gender ? search.gender.charAt(0).toUpperCase() + search.gender.slice(1) : null
-  const lookingForLabel = search.looking_for ? `Looking for: ${search.looking_for}` : null
+  const lookingForLabel = search.looking_for ? `Looking for: ${formatLookingFor(search.looking_for, search.looking_for_gender)}` : null
   const addressLabel = search.tagged_address ? formatTaggedAddress(search.tagged_address) : null
 
   return (

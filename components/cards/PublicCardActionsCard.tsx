@@ -7,6 +7,7 @@ import { PersonalityCard } from "@/components/cards/PersonalityCard"
 import { createClient } from "@/lib/supabase/client"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
 import { getConversationBlockStatus } from "@/lib/blocks"
+import { formatLookingFor } from "@/lib/lookingFor"
 import type { Card, CardInteraction } from "@/types"
 
 interface PublicCardActionsCardProps {
@@ -95,7 +96,7 @@ export function PublicCardActionsCard({ card, userId }: PublicCardActionsCardPro
         .gt("expires_at", new Date().toISOString())
 
       if (!unlocks?.length) {
-        toast.error(`You need an active card with "Looking For: ${card.looking_for}" to chat.`)
+        toast.error(`You need an active card with "Looking For: ${formatLookingFor(card.looking_for, card.looking_for_gender)}" to chat.`)
         router.push("/cards")
         return
       }
@@ -103,7 +104,7 @@ export function PublicCardActionsCard({ card, userId }: PublicCardActionsCardPro
       const eligibleCards = await fetchEligibleShareCards(supabase, userId, card.looking_for)
 
       if (eligibleCards.length === 0) {
-        toast.error(`No enabled card found with "Looking For: ${card.looking_for}".`)
+        toast.error(`No enabled card found with "Looking For: ${formatLookingFor(card.looking_for, card.looking_for_gender)}".`)
         return
       }
 
