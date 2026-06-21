@@ -27,11 +27,15 @@ CREATE TABLE IF NOT EXISTS cards (
   looking_for TEXT NOT NULL,
   looking_for_gender TEXT CHECK (looking_for_gender IS NULL OR looking_for_gender IN ('male', 'female', 'other')),
   qualities TEXT[] DEFAULT '{}',
-  hobbies TEXT[] DEFAULT '{}',
+  interests TEXT[] DEFAULT '{}',
+  weakness TEXT[] DEFAULT '{}',
+  disinterests TEXT[] DEFAULT '{}',
   note TEXT,
   is_public BOOLEAN DEFAULT TRUE,
   is_closed BOOLEAN DEFAULT FALSE,
   closed_with_profile_id UUID REFERENCES profiles(id),
+  closed_with_card_id UUID REFERENCES cards(id),
+  closure_type TEXT CHECK (closure_type IS NULL OR closure_type IN ('direct', 'linked')),
   chat_enabled BOOLEAN DEFAULT FALSE,
   view_count INTEGER DEFAULT 0,
   save_count INTEGER DEFAULT 0,
@@ -47,6 +51,7 @@ CREATE TABLE IF NOT EXISTS field_options (
   value TEXT NOT NULL,
   is_approved BOOLEAN DEFAULT TRUE,
   is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+  is_verified BOOLEAN NOT NULL DEFAULT TRUE,
   submitted_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(field_name, value)
@@ -77,7 +82,9 @@ CREATE TABLE IF NOT EXISTS searches (
   looking_for TEXT,
   looking_for_gender TEXT CHECK (looking_for_gender IS NULL OR looking_for_gender IN ('male', 'female', 'other')),
   qualities TEXT[] DEFAULT '{}',
-  hobbies TEXT[] DEFAULT '{}',
+  interests TEXT[] DEFAULT '{}',
+  weakness TEXT[] DEFAULT '{}',
+  disinterests TEXT[] DEFAULT '{}',
   new_cards_count INTEGER DEFAULT 0,
   last_searched_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -181,6 +188,11 @@ CREATE TABLE IF NOT EXISTS chat_unlocks (
   target_gender TEXT CHECK (target_gender IS NULL OR target_gender IN ('male', 'female', 'other')),
   expires_at TIMESTAMPTZ NOT NULL,
   expiry_notified BOOLEAN NOT NULL DEFAULT FALSE,
+  offer_id UUID, -- FK to offers added after that table exists (see migration)
+  offer_type TEXT CHECK (offer_type IS NULL OR offer_type IN ('welcome', 'card_creation', 'occasional')),
+  amount_paid INTEGER NOT NULL DEFAULT 0,
+  base_duration_days INTEGER,
+  bonus_duration_days INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -336,6 +348,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   type TEXT DEFAULT 'general',
   metadata JSONB,
   is_read BOOLEAN DEFAULT FALSE,
+  -- event_at = when the underlying event occurred (display time); created_at = delivery time.
+  event_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -411,6 +425,7 @@ CREATE TABLE IF NOT EXISTS card_prioritizations (
   plan_type TEXT NOT NULL CHECK (plan_type IN ('N', 'S')),
   plan_id UUID REFERENCES prioritization_plans(id),
   prioritized_view_count INTEGER NOT NULL DEFAULT 0,
+  amount_paid INTEGER NOT NULL DEFAULT 0,
   starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   expires_at TIMESTAMPTZ NOT NULL,
   expiry_notified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -689,20 +704,36 @@ INSERT INTO field_options (field_name, value) VALUES
   ('qualities', 'Patient'),
   ('qualities', 'Confident'),
   ('qualities', 'Open-minded'),
-  ('hobbies', 'Reading'),
-  ('hobbies', 'Travelling'),
-  ('hobbies', 'Gaming'),
-  ('hobbies', 'Music'),
-  ('hobbies', 'Photography'),
-  ('hobbies', 'Cooking'),
-  ('hobbies', 'Fitness'),
-  ('hobbies', 'Writing'),
-  ('hobbies', 'Art'),
-  ('hobbies', 'Movies'),
-  ('hobbies', 'Hiking'),
-  ('hobbies', 'Dancing'),
-  ('hobbies', 'Coding'),
-  ('hobbies', 'Sports')
+  ('interests', 'Reading'),
+  ('interests', 'Travelling'),
+  ('interests', 'Gaming'),
+  ('interests', 'Music'),
+  ('interests', 'Photography'),
+  ('interests', 'Cooking'),
+  ('interests', 'Fitness'),
+  ('interests', 'Writing'),
+  ('interests', 'Art'),
+  ('interests', 'Movies'),
+  ('interests', 'Hiking'),
+  ('interests', 'Dancing'),
+  ('interests', 'Coding'),
+  ('interests', 'Sports'),
+  ('weakness', 'Impatient'),
+  ('weakness', 'Stubborn'),
+  ('weakness', 'Overthinker'),
+  ('weakness', 'Disorganized'),
+  ('weakness', 'Procrastinator'),
+  ('weakness', 'Shy'),
+  ('weakness', 'Forgetful'),
+  ('weakness', 'Short-tempered'),
+  ('disinterests', 'Smoking'),
+  ('disinterests', 'Drinking'),
+  ('disinterests', 'Loud Parties'),
+  ('disinterests', 'Horror Movies'),
+  ('disinterests', 'Gossip'),
+  ('disinterests', 'Crowds'),
+  ('disinterests', 'Early Mornings'),
+  ('disinterests', 'Spicy Food')
 ON CONFLICT (field_name, value) DO NOTHING;
 
 -- Owner admin account (password: prateekchauhan hashed as sha256)
@@ -718,4 +749,151 @@ ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO platform_config (key, value)
 VALUES ('contact_penalty_amount', '0')
+ON CONFLICT (key) DO NOTHING;
+
+-- ============================================================
+-- V2 Extra Features (see supabase/v2-features-migration.sql)
+-- ============================================================
+
+-- Home Page banner management
+CREATE TABLE IF NOT EXISTS banner_sections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL DEFAULT '',
+  display_order INTEGER NOT NULL DEFAULT 0,
+  is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS banner_images (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_id UUID NOT NULL REFERENCES banner_sections(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  link_url TEXT,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS banner_images_section_idx ON banner_images(section_id);
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('banners', 'banners', true)
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
+
+-- OTP request rate limiting
+CREATE TABLE IF NOT EXISTS otp_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone TEXT NOT NULL,
+  ip TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS otp_requests_phone_idx ON otp_requests(phone, created_at);
+CREATE INDEX IF NOT EXISTS otp_requests_ip_idx ON otp_requests(ip, created_at);
+
+-- Card-to-card closure mapping
+CREATE TABLE IF NOT EXISTS card_closures (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  closed_with_card_id UUID REFERENCES cards(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS card_closures_card_idx ON card_closures(card_id);
+
+-- Discount offers system
+CREATE TABLE IF NOT EXISTS offers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  offer_type TEXT NOT NULL CHECK (offer_type IN ('welcome', 'card_creation', 'occasional')),
+  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  availability_days INTEGER NOT NULL DEFAULT 0,
+  availability_hours INTEGER NOT NULL DEFAULT 0,
+  banner_url TEXT,
+  activation_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(offer_type)
+);
+
+CREATE TABLE IF NOT EXISTS offer_category_benefits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  offer_id UUID NOT NULL REFERENCES offers(id) ON DELETE CASCADE,
+  looking_for_category TEXT NOT NULL,
+  discounted_price INTEGER,
+  bonus_duration_days INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(offer_id, looking_for_category)
+);
+CREATE INDEX IF NOT EXISTS offer_benefits_offer_idx ON offer_category_benefits(offer_id);
+
+CREATE TABLE IF NOT EXISTS user_offers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  offer_id UUID NOT NULL REFERENCES offers(id) ON DELETE CASCADE,
+  offer_type TEXT NOT NULL CHECK (offer_type IN ('welcome', 'card_creation', 'occasional')),
+  trigger_card_id UUID REFERENCES cards(id) ON DELETE SET NULL,
+  starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, offer_type)
+);
+CREATE INDEX IF NOT EXISTS user_offers_user_idx ON user_offers(user_id);
+CREATE INDEX IF NOT EXISTS user_offers_expires_idx ON user_offers(expires_at);
+
+-- Wire chat_unlocks.offer_id to offers now that the table exists.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chat_unlocks_offer_id_fkey'
+  ) THEN
+    ALTER TABLE chat_unlocks
+      ADD CONSTRAINT chat_unlocks_offer_id_fkey
+      FOREIGN KEY (offer_id) REFERENCES offers(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- Notification-assistance counters (transient)
+CREATE TABLE IF NOT EXISTS notification_assist_counts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Address suggestion performance indexes
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS tagged_suggestions_value_trgm
+  ON tagged_address_suggestions USING gin (value gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS tagged_suggestions_lookup_idx
+  ON tagged_address_suggestions(address_type, field_name);
+
+-- RLS for V2 tables
+ALTER TABLE banner_sections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE banner_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE otp_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE card_closures ENABLE ROW LEVEL SECURITY;
+ALTER TABLE offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE offer_category_benefits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_assist_counts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "banner_sections_read" ON banner_sections FOR SELECT USING (true);
+CREATE POLICY "banner_sections_write" ON banner_sections FOR ALL USING (true);
+CREATE POLICY "banner_images_read" ON banner_images FOR SELECT USING (true);
+CREATE POLICY "banner_images_write" ON banner_images FOR ALL USING (true);
+CREATE POLICY "otp_requests_service" ON otp_requests FOR ALL USING (false) WITH CHECK (false);
+CREATE POLICY "card_closures_read" ON card_closures FOR SELECT USING (true);
+CREATE POLICY "card_closures_write" ON card_closures FOR ALL USING (true);
+CREATE POLICY "offers_read" ON offers FOR SELECT USING (true);
+CREATE POLICY "offers_write" ON offers FOR ALL USING (true);
+CREATE POLICY "offer_benefits_read" ON offer_category_benefits FOR SELECT USING (true);
+CREATE POLICY "offer_benefits_write" ON offer_category_benefits FOR ALL USING (true);
+CREATE POLICY "user_offers_read" ON user_offers FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "user_offers_write" ON user_offers FOR ALL USING (true);
+CREATE POLICY "notification_assist_service" ON notification_assist_counts FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "banners_read" ON storage.objects;
+CREATE POLICY "banners_read" ON storage.objects FOR SELECT USING (bucket_id = 'banners');
+
+-- V2 platform config defaults
+INSERT INTO platform_config (key, value) VALUES
+  ('help_friends_join_enabled', 'true'),
+  ('default_chat_unlock_price', '0'),
+  ('default_chat_unlock_duration_days', '30')
 ON CONFLICT (key) DO NOTHING;
