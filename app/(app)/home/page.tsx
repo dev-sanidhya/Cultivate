@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import Link from "next/link"
 import { Users, MessageSquarePlus } from "lucide-react"
+import { HomeBanners } from "@/components/HomeBanners"
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -103,6 +104,9 @@ export default async function HomePage() {
           Find your people on Strefo.
         </p>
       </div>
+
+      {/* Admin-managed banner sections, shown above the help-friends box. */}
+      <HomeBanners />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Upload Contacts Card ("Help Your Friends Join") - admin-toggleable */}
