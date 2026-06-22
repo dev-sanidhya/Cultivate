@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2, Pencil, CircleX, ChevronDown, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
@@ -60,17 +60,39 @@ export function PersonalityCard({
   const shouldShowTaggedLocation = showTaggedLocation ?? mode !== "search"
   const addressLabel = shouldShowTaggedLocation && card.tagged_address ? formatTaggedAddress(card.tagged_address) : null
 
+  // Responsive zoom: scale the whole card (text, inputs, buttons, padding) as a
+  // single unit to fit the available width, instead of wrapping/cutting content.
+  const DESIGN_WIDTH = 380
+  const scaleHostRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    const host = scaleHostRef.current
+    if (!host) return
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? DESIGN_WIDTH
+      setScale(width / DESIGN_WIDTH)
+    })
+    ro.observe(host)
+    return () => ro.disconnect()
+  }, [])
+
   return (
+    <div ref={scaleHostRef} style={{ width: "100%", aspectRatio: "7 / 12", position: "relative" }}>
     <div
       className="card animate-fadeIn"
       style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: DESIGN_WIDTH,
+        height: DESIGN_WIDTH * 12 / 7,
+        transform: `scale(${scale})`,
+        transformOrigin: "top left",
         display: "flex",
         flexDirection: "column",
-        aspectRatio: "7 / 12",
         padding: "18px",
         borderRadius: fullscreen ? 28 : undefined,
         overflow: "hidden",
-        position: "relative",
         opacity: card.is_closed ? 0.7 : 1,
       }}
     >
@@ -273,6 +295,9 @@ export function PersonalityCard({
             borderLeft: "3px solid var(--color-primary-light)",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
+            // Only capture vertical scroll here so horizontal swipes pass through
+            // to trigger card navigation (consistent swipe across the whole card).
+            touchAction: "pan-y",
           }}
         >
           {card.note}
@@ -421,6 +446,7 @@ export function PersonalityCard({
           )}
         </div>
       )}
+    </div>
     </div>
   )
 }

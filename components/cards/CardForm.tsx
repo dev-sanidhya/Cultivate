@@ -556,8 +556,10 @@ export function CardForm({
             setNote(e.target.value)
             if (noteError) setNoteError("")
           }}
-          rows={3}
-          style={{ resize: "none" }}
+          rows={6}
+          // WYSIWYG: match the card's Note typography (font size + line height +
+          // padding) so the editor shows the same wrapping/visible text as the card.
+          style={{ resize: "none", fontSize: 13, lineHeight: 1.5, padding: "10px 12px", minHeight: 132 }}
           disabled={disabled}
         />
         {noteError && (
