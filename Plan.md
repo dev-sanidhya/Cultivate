@@ -234,10 +234,26 @@ PENDING (heaviest clusters remain):
 - [ ] #33 notif-assist admin page (offer expiry 7h-4h window, export, counts)
 - [ ] #34 security audit (final pass)
 
+- [x] #24/#25/#26/#27/#28 Offers system (lib/offers.ts, admin /admin/offers, pricing integration,
+  two-tab unlock + Active Unlocks, banner popup + countdown OfferBanner, unlock extension)
+- [x] #1 Home banners (admin /admin/banners + HomeBanners carousel + storage upload route)
+- [x] #30 Contact validation on all custom fields + special-char restriction
+- [x] #33 Notification Assistance admin page (+ /api/admin/notif-assist)
+- [x] #14/#29/#32 Stats: prioritization analytics, conversion by offer, address tagging
+- [x] #5 swipe-through note area, #6 WYSIWYG note editor, #18-compaction (already single-line), #20 zoom scaling
+- [x] #34 Security audit -> SECURITY.md (findings + fixes)
+
 ## Build state note
-- 19 features + foundation done in one session. ~19 commits on main, NOT pushed (single push at end).
-- Each commit typechecks clean via `node ./node_modules/typescript/lib/tsc.js --noEmit`.
-- Offers system (#24 cluster) is the largest remaining piece - tackle with fresh context.
+- ALL ~30 features + foundation implemented in this session. Each commit typechecks clean.
+- New admin pages registered in lib/admin-access.ts: offers, banners, notif_assist (owner sees all;
+  grant to employees via accessible_pages).
+- Security: SECURITY.md documents the admin-write RLS + unauthenticated admin-route issues
+  (architectural, flagged for deliberate follow-up).
+
+## SQL to run manually on live Supabase (in order)
+1. `supabase/v2-features-migration.sql` (or full `supabase/schema.sql` on a fresh DB)
+2. `supabase/v2-wipe-user-data.sql` (dev reset - deletes all non-admin user data)
+Project must be un-paused first. Admin then creates offers/plans/banners/pricing in the panel.
 
 ## V2 notes
 - node_modules was NOT installed initially; ran `npm install` (370 pkgs) to enable typecheck/build.
