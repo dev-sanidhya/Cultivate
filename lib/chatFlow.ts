@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Card, Gender } from "@/types"
 import { getConversationBlockStatus } from "@/lib/blocks"
 import { createChatForCardPair, fetchEligibleShareCards } from "@/lib/chat"
+import { enableChatForCategory, hasActiveUnlock, isApprovedLookingForCategory } from "@/lib/chatUnlocks"
 import {
   getCounterpart,
   ineligibleContactMessage,
@@ -31,51 +32,10 @@ export type ChatFlowResult =
       durationDays: number
     }
 
-function nowIso() {
-  return new Date().toISOString()
-}
-
-/** Whether the user holds an active unlock for the given (category, gender) pair. */
-export async function hasActiveUnlock(
-  supabase: SupabaseLike,
-  userId: string,
-  category: string,
-  targetGender: Gender | null,
-): Promise<boolean> {
-  let query = supabase
-    .from("chat_unlocks")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("looking_for_category", category)
-    .gt("expires_at", nowIso())
-
-  query = targetGender == null ? query.is("target_gender", null) : query.eq("target_gender", targetGender)
-
-  const { data } = await query.limit(1)
-  return (data?.length ?? 0) > 0
-}
-
 async function fetchPricing(supabase: SupabaseLike, category: string) {
   // Falls back to platform default pricing for unverified/custom categories.
   const { price, durationDays } = await resolveUnlockPricing(supabase, category)
   return { price, durationDays }
-}
-
-/** Enable chat on every (non-closed) card the user owns in this (category, gender). */
-export async function enableChatForCategory(
-  supabase: SupabaseLike,
-  userId: string,
-  category: string,
-  targetGender: Gender | null,
-) {
-  let query = supabase
-    .from("cards")
-    .update({ chat_enabled: true })
-    .eq("user_id", userId)
-    .eq("looking_for", category)
-
-  query = targetGender == null ? query.is("looking_for_gender", null) : query.eq("looking_for_gender", targetGender)
-  await query
 }
 
 /** Create the counterpart card used to chat (age/gender from profile, rest empty). */
@@ -146,6 +106,14 @@ export async function resolveChatStart(
     return { kind: "blocked", message: "You cannot chat with this user." }
   }
 
+  const isApproved = await isApprovedLookingForCategory(supabase, counterpart.looking_for)
+  if (!isApproved) {
+    return {
+      kind: "blocked",
+      message: "This Looking For option must be approved before chats can be unlocked.",
+    }
+  }
+
   const unlocked = await hasActiveUnlock(supabase, viewer.id, counterpart.looking_for, counterpart.looking_for_gender)
 
   if (!unlocked) {
@@ -193,6 +161,11 @@ export async function completeDirectUnlock(
   counterpart: Counterpart,
   durationDays: number,
 ): Promise<string> {
+  const isApproved = await isApprovedLookingForCategory(supabase, counterpart.looking_for)
+  if (!isApproved) {
+    throw new Error("This Looking For option must be approved before chats can be unlocked.")
+  }
+
   const newCard = await createCounterpartCard(supabase, viewer, counterpart)
 
   const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()

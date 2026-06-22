@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Gender } from "@/types"
+import type { Gender, PrioritizationType } from "@/types"
 import { formatLookingFor } from "@/lib/lookingFor"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
@@ -24,13 +24,14 @@ export async function runExpiryNotifications(supabase: SupabaseLike, userId: str
 async function notifyExpiredPrioritizations(supabase: SupabaseLike, userId: string) {
   const { data } = await supabase
     .from("card_prioritizations")
-    .select("id, prioritized_view_count, expires_at, card:card_id(card_id)")
+    .select("id, plan_type, prioritized_view_count, expires_at, card:card_id(card_id)")
     .eq("user_id", userId)
     .eq("expiry_notified", false)
     .lt("expires_at", nowIso())
 
   const rows = (data ?? []) as unknown as {
     id: string
+    plan_type: PrioritizationType
     prioritized_view_count: number
     expires_at: string
     card: { card_id: string } | { card_id: string }[] | null
@@ -42,11 +43,12 @@ async function notifyExpiredPrioritizations(supabase: SupabaseLike, userId: stri
     const cardRel = Array.isArray(row.card) ? row.card[0] : row.card
     const humanId = cardRel?.card_id ?? "your"
     const views = row.prioritized_view_count ?? 0
+    const prioritizationLabel = `${row.plan_type}-Prioritization`
     const message =
-      `The prioritization period for your #${humanId} card has ended. ` +
+      `The ${prioritizationLabel} period for your #${humanId} card has ended. ` +
       `Your card will no longer be displayed before other cards in the search results. ` +
-      `During the prioritization period, your card was viewed by ${views} ${views === 1 ? "user" : "users"}. ` +
-      `If you have not yet found the person you are looking for, you can prioritize your card again to increase its visibility.`
+      `During the ${prioritizationLabel} period, your card was viewed by ${views} ${views === 1 ? "user" : "users"}. ` +
+      `If you have not yet found the person you are looking for, you can get prioritization again to increase its visibility.`
 
     await supabase.from("notifications").insert({
       user_id: userId,
@@ -54,7 +56,7 @@ async function notifyExpiredPrioritizations(supabase: SupabaseLike, userId: stri
       type: "prioritization_expired",
       // Display time reflects when the prioritization actually ended, not delivery time.
       event_at: row.expires_at,
-      metadata: { card_id: humanId, views },
+      metadata: { card_id: humanId, views, plan_type: row.plan_type },
     })
   }
 

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Gender, OfferType, PrioritizationPlan, PrioritizationType } from "@/types"
-import { enableChatForCategory } from "@/lib/chatFlow"
+import { enableChatForCategory, isApprovedLookingForCategory } from "@/lib/chatUnlocks"
 
 type SupabaseLike = Pick<SupabaseClient, "from" | "rpc">
 
@@ -59,6 +59,12 @@ export async function createCategoryUnlock(
   offer?: UnlockOfferInfo,
   extendFromExpiry?: string | null,
 ) {
+  const isApproved = await isApprovedLookingForCategory(supabase, category)
+  if (!isApproved) {
+    throw new Error("This Looking For option must be approved before chats can be unlocked.")
+  }
+
+  // Extension adds time on top of an existing unlock's expiry; otherwise from now.
   const startMs = extendFromExpiry ? new Date(extendFromExpiry).getTime() : Date.now()
   const base = Math.max(startMs, Date.now())
   const expiresAt = new Date(base + durationDays * 24 * 60 * 60 * 1000).toISOString()

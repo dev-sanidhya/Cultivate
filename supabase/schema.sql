@@ -196,6 +196,39 @@ CREATE TABLE IF NOT EXISTS chat_unlocks (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE OR REPLACE FUNCTION apply_active_chat_unlock_to_card()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.chat_enabled := EXISTS (
+    SELECT 1
+    FROM chat_unlocks cu
+    WHERE cu.user_id = NEW.user_id
+      AND cu.looking_for_category = NEW.looking_for
+      AND (
+        (cu.target_gender IS NULL AND NEW.looking_for_gender IS NULL)
+        OR cu.target_gender = NEW.looking_for_gender
+      )
+      AND cu.expires_at > NOW()
+      AND EXISTS (
+        SELECT 1
+        FROM field_options fo
+        WHERE fo.field_name = 'looking_for'
+          AND fo.value = NEW.looking_for
+          AND fo.is_approved = TRUE
+      )
+  ) AND COALESCE(NEW.is_closed, FALSE) = FALSE;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS apply_active_chat_unlock_to_card_trigger ON cards;
+CREATE TRIGGER apply_active_chat_unlock_to_card_trigger
+  BEFORE INSERT OR UPDATE OF user_id, looking_for, looking_for_gender, is_closed
+  ON cards
+  FOR EACH ROW
+  EXECUTE FUNCTION apply_active_chat_unlock_to_card();
+
 -- Chat image uploads
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('chat-images', 'chat-images', true)
@@ -438,6 +471,14 @@ CREATE INDEX IF NOT EXISTS card_prioritizations_expires_idx ON card_prioritizati
 CREATE OR REPLACE FUNCTION record_card_view(p_card_id UUID)
 RETURNS VOID AS $$
 BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM cards
+    WHERE id = p_card_id AND user_id = auth.uid()
+  ) THEN
+    RETURN;
+  END IF;
+
   UPDATE cards
     SET view_count = GREATEST(COALESCE(view_count, 0) + 1, 0), updated_at = NOW()
     WHERE id = p_card_id;

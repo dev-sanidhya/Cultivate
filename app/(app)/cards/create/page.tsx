@@ -12,7 +12,24 @@ import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@
 import { getErrorMessage } from "@/lib/utils/errors"
 import { startUserOfferWindow } from "@/lib/offers"
 import { noteMeetsSearchLength } from "@/lib/cardRules"
+import { shouldEnableChatForCard } from "@/lib/chatUnlocks"
 import type { FieldOption, Gender } from "@/types"
+
+const DEFAULT_NOTE_TEMPLATE = `# My Personality & Nature
+
+
+
+
+
+
+# Actions That Reflect My Personality
+
+
+
+
+
+
+# My Expectations For The Person I Am Looking For`
 
 export default function CreateCardPage() {
   const router = useRouter()
@@ -93,6 +110,11 @@ export default function CreateCardPage() {
         attempts++
       }
 
+      const chatEnabled = await shouldEnableChatForCard(supabase, user!.id, {
+        looking_for: data.looking_for,
+        looking_for_gender: data.looking_for_gender,
+      })
+
       const { data: card, error } = await supabase.from("cards").insert({
         card_id: cardId,
         user_id: user!.id,
@@ -108,6 +130,7 @@ export default function CreateCardPage() {
         disinterests: data.disinterests,
         note: data.note || null,
         is_public: true,
+        chat_enabled: chatEnabled,
       }).select().single()
 
       if (error) throw error
@@ -185,6 +208,7 @@ export default function CreateCardPage() {
     <div className="page-container" style={{ paddingTop: 5 }}>
       <PageHeader title="Create Card" subtitle="Share who you are" showBack />
       <CardForm
+        initialData={{ note: DEFAULT_NOTE_TEMPLATE }}
         gender={gender}
         fieldOptions={fieldOptions}
         onSubmit={handleSubmit}

@@ -31,7 +31,7 @@ export default async function PublicCardPage({ params }: { params: Promise<{ car
         padding: "70px 16px 24px",
       }}
     >
-      <CardViewTracker cardId={card.id} />
+      {user?.id !== card.user_id && <CardViewTracker cardId={card.id} />}
       <div style={{ width: "100%", maxWidth: 390, marginTop: 4 }}>
         {user ? (
           <PublicCardViewer card={card} />

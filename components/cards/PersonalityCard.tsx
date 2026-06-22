@@ -1,11 +1,16 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Maximize2, Pencil, CircleX, ChevronDown, ChevronRight } from "lucide-react"
+import { useState, type RefObject } from "react"
+import { Share2, Eye, Bookmark, Heart, MessageCircle, Lock, Unlock, BookOpen, BookCheck, Pencil, CircleX, ChevronDown, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import type { Card, CardInteraction } from "@/types"
 import { formatTaggedAddress } from "@/lib/utils/format"
 import { formatLookingFor } from "@/lib/lookingFor"
+import { PrioritizationBadge } from "@/components/cards/PrioritizationBadge"
+import type { PrioritizationType } from "@/types"
+
+// Increase/decrease this to tune the desktop card width without changing the card internals.
+const DESKTOP_CARD_MAX_WIDTH = 375
 
 interface PersonalityCardProps {
   card: Card
@@ -20,10 +25,13 @@ interface PersonalityCardProps {
   onMarkRead?: (read: boolean) => void
   onFullscreen?: () => void
   showBrandMark?: boolean
+  showOwnActionsInside?: boolean
   showTaggedLocation?: boolean
+  prioritizationType?: PrioritizationType | null
   isRead?: boolean
   fullscreen?: boolean
   isOwnInSearch?: boolean
+  notePanelRef?: RefObject<HTMLDivElement | null>
 }
 
 export function PersonalityCard({
@@ -39,13 +47,59 @@ export function PersonalityCard({
   onMarkRead,
   onFullscreen,
   showBrandMark,
+  showOwnActionsInside = true,
   showTaggedLocation,
+  prioritizationType,
   isRead,
   fullscreen = false,
   isOwnInSearch = false,
+  notePanelRef,
 }: PersonalityCardProps) {
   const isLiked = interactions.some((i) => i.card_id === card.id && i.type === "like")
   const isSaved = interactions.some((i) => i.card_id === card.id && i.type === "save")
+  const noteText = card.note?.trim() ?? ""
+  const profileParts = [
+    `${card.age}y`,
+    card.gender ? card.gender.charAt(0).toUpperCase() + card.gender.slice(1) : null,
+    ...(card.personality_types ?? []),
+  ].filter(Boolean) as string[]
+  const profileLabel = profileParts.join(" • ")
+  const lookingForChipStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
+    color: "white",
+    padding: "6px 14px",
+    borderRadius: 20,
+    fontSize: 13,
+    fontWeight: 600,
+    minWidth: 0,
+    maxWidth: "100%",
+    flex: "0 1 auto",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  } as const
+  const profileChipStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "5px 12px",
+    borderRadius: 9999,
+    fontSize: 13,
+    fontWeight: 500,
+    background: "var(--color-primary-bg)",
+    color: "var(--color-primary)",
+    border: "none",
+    whiteSpace: "nowrap",
+    minWidth: 0,
+    maxWidth: "100%",
+    flex: "0 1 auto",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  } as const
+  const isSearchCardInteractive = mode === "search" && !!onFullscreen && !fullscreen
 
   function shareCard() {
     const url = `${window.location.origin}/card/${card.card_id}`
@@ -60,72 +114,41 @@ export function PersonalityCard({
   const shouldShowTaggedLocation = showTaggedLocation ?? mode !== "search"
   const addressLabel = shouldShowTaggedLocation && card.tagged_address ? formatTaggedAddress(card.tagged_address) : null
 
-  // Responsive zoom: scale the whole card (text, inputs, buttons, padding) as a
-  // single unit to fit the available width, instead of wrapping/cutting content.
-  const DESIGN_WIDTH = 380
-  const scaleHostRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
-  useEffect(() => {
-    const host = scaleHostRef.current
-    if (!host) return
-    const ro = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? DESIGN_WIDTH
-      setScale(width / DESIGN_WIDTH)
-    })
-    ro.observe(host)
-    return () => ro.disconnect()
-  }, [])
-
   return (
-    <div ref={scaleHostRef} style={{ width: "100%", aspectRatio: "7 / 12", position: "relative" }}>
     <div
       className="card animate-fadeIn"
+      role={isSearchCardInteractive ? "button" : undefined}
+      tabIndex={isSearchCardInteractive ? 0 : undefined}
+      aria-label={isSearchCardInteractive ? "Open card fullscreen" : undefined}
+      onClick={isSearchCardInteractive ? onFullscreen : undefined}
+      onKeyDown={
+        isSearchCardInteractive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                onFullscreen?.()
+              }
+            }
+          : undefined
+      }
       style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: DESIGN_WIDTH,
-        height: DESIGN_WIDTH * 12 / 7,
-        transform: `scale(${scale})`,
-        transformOrigin: "top left",
         display: "flex",
         flexDirection: "column",
+        aspectRatio: "7 / 12",
+        width: "100%",
+        maxWidth: fullscreen ? undefined : DESKTOP_CARD_MAX_WIDTH,
+        margin: "0 auto",
         padding: "18px",
         borderRadius: fullscreen ? 28 : undefined,
         overflow: "hidden",
+        position: "relative",
         opacity: card.is_closed ? 0.7 : 1,
+        cursor: isSearchCardInteractive ? "pointer" : "default",
       }}
     >
-      {mode === "search" && onFullscreen && (
-        <button
-          onClick={onFullscreen}
-          aria-label="Open fullscreen"
-          title="Open fullscreen"
-          style={{
-            position: "absolute",
-            top: 14,
-            right: 14,
-            width: 34,
-            height: 34,
-            borderRadius: "50%",
-            border: "1px solid var(--color-border)",
-            background: "rgba(255,255,255,0.96)",
-            color: "var(--color-text-secondary)",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            boxShadow: "0 8px 24px rgba(99, 102, 241, 0.10)",
-            zIndex: 2,
-          }}
-        >
-          <Maximize2 size={15} />
-        </button>
-      )}
-
       {/* Top row: Card ID + status */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span
             style={{
               background: "var(--color-primary-bg)",
@@ -140,6 +163,7 @@ export function PersonalityCard({
           >
             #{card.card_id}
           </span>
+          {prioritizationType && <PrioritizationBadge type={prioritizationType} floating={false} />}
           {card.is_closed && (
             <span style={{ fontSize: 11, color: "var(--color-text-muted)", background: "#F3F4F6", padding: "3px 8px", borderRadius: 20 }}>
               Closed
@@ -169,7 +193,7 @@ export function PersonalityCard({
                 Strefo
               </span>
           )}
-          {mode === "own" && (
+          {mode === "own" && showOwnActionsInside && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
               {!card.is_closed && card.is_public && (
                 <button
@@ -218,39 +242,23 @@ export function PersonalityCard({
         </div>
       </div>
 
-      {/* Looking For - prominent */}
-      {card.looking_for && (
+      {/* Looking For + profile chips */}
+      {(card.looking_for || profileLabel) && (
         <div style={{ marginBottom: 14 }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-              color: "white",
-              padding: "6px 14px",
-              borderRadius: 20,
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            Looking for: {formatLookingFor(card.looking_for, card.looking_for_gender)}
+          <div style={{ display: "flex", flexWrap: "nowrap", alignItems: "center", gap: 8, width: "100%", minWidth: 0 }}>
+            {card.looking_for && (
+              <div style={lookingForChipStyle}>
+                Looking for: {formatLookingFor(card.looking_for, card.looking_for_gender)}
+              </div>
+            )}
+            {profileLabel && (
+              <span style={{ ...profileChipStyle, marginLeft: "auto" }}>
+                {profileLabel}
+              </span>
+            )}
           </div>
         </div>
       )}
-
-      {/* Core fields */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-        <span className="tag selected" style={{ background: "#EDE9FE", color: "#6D28D9", border: "none" }}>
-          {card.age}y
-        </span>
-        <span className="tag selected" style={{ background: "#EDE9FE", color: "#6D28D9", border: "none", textTransform: "capitalize" }}>
-          {card.gender}
-        </span>
-        {card.personality_types?.map((p) => (
-          <span key={p} className="tag">{p}</span>
-        ))}
-      </div>
 
       {/* Address */}
       {addressLabel && (
@@ -279,30 +287,34 @@ export function PersonalityCard({
       })()}
 
       {/* Note */}
-      {card.note && (
-        <div
-          style={{
-            background: "var(--color-primary-bg)",
-            borderRadius: 10,
-            padding: "10px 12px",
-            marginBottom: 14,
-            flex: "1 1 auto",
-            minHeight: 0,
-            overflowY: "auto",
-            fontSize: 13,
-            color: "var(--color-text-secondary)",
-            lineHeight: 1.5,
-            borderLeft: "3px solid var(--color-primary-light)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            // Only capture vertical scroll here so horizontal swipes pass through
-            // to trigger card navigation (consistent swipe across the whole card).
-            touchAction: "pan-y",
-          }}
-        >
-          {card.note}
-        </div>
-      )}
+      <div
+        ref={notePanelRef}
+        style={{
+          background: "var(--color-primary-bg)",
+          borderRadius: 10,
+          padding: "10px 12px",
+          marginBottom: 14,
+          flex: "1 1 auto",
+          minHeight: 0,
+          overflowY: "auto",
+          fontSize: 13,
+          color: "var(--color-text-secondary)",
+          lineHeight: 1.5,
+          borderLeft: "3px solid var(--color-primary-light)",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          display: "flex",
+          alignItems: noteText ? "flex-start" : "center",
+          // Only capture vertical scroll so horizontal swipes pass through to card nav.
+          touchAction: "pan-y",
+        }}
+      >
+        {noteText ? (
+          noteText
+        ) : (
+          <span style={{ opacity: 0.55, fontStyle: "italic" }}>No note added</span>
+        )}
+      </div>
 
       {/* Action bar */}
       {mode === "own" && (
@@ -310,6 +322,14 @@ export function PersonalityCard({
           <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
             <Eye size={13} />
             <span>{card.view_count}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+            <Heart size={13} />
+            <span>{card.like_count}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+            <Bookmark size={13} />
+            <span>{card.save_count}</span>
           </div>
           <button
             className="btn-ghost"
@@ -344,7 +364,10 @@ export function PersonalityCard({
       {mode === "search" && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, borderTop: "1px solid var(--color-border-light)", paddingTop: 0 }}>
           <button
-            onClick={onLike}
+            onClick={(event) => {
+              event.stopPropagation()
+              onLike?.()
+            }}
             aria-label={isLiked ? "Unlike" : "Like"}
             title={isLiked ? "Unlike" : "Like"}
             style={{
@@ -363,7 +386,10 @@ export function PersonalityCard({
             <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
           </button>
           <button
-            onClick={onSave}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSave?.()
+            }}
             aria-label={isSaved ? "Unsave" : "Save"}
             title={isSaved ? "Unsave" : "Save"}
             style={{
@@ -382,7 +408,10 @@ export function PersonalityCard({
             <Bookmark size={18} fill={isSaved ? "currentColor" : "none"} />
           </button>
           <button
-            onClick={() => onMarkRead?.(!isRead)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onMarkRead?.(!isRead)
+            }}
             aria-label={isRead ? "Mark unread" : "Mark read"}
             title={isRead ? "Mark unread" : "Mark read"}
             style={{
@@ -402,7 +431,10 @@ export function PersonalityCard({
             {isRead ? <BookCheck size={18} /> : <BookOpen size={18} />}
           </button>
           <button
-            onClick={shareCard}
+            onClick={(event) => {
+              event.stopPropagation()
+              shareCard()
+            }}
             aria-label="Share"
             title="Share"
             style={{
@@ -433,7 +465,10 @@ export function PersonalityCard({
             </span>
           ) : (
             <button
-              onClick={onChat}
+              onClick={(event) => {
+                event.stopPropagation()
+                onChat?.()
+              }}
               style={{
                 marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
                 padding: "8px 16px", borderRadius: 20,
@@ -446,7 +481,6 @@ export function PersonalityCard({
           )}
         </div>
       )}
-    </div>
     </div>
   )
 }
@@ -462,14 +496,33 @@ function SingleLineTagSection({
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          setExpanded((prev) => !prev)
+        }}
+        aria-label={expanded ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
+        aria-expanded={expanded}
+        title={expanded ? `Collapse ${title}` : `Expand ${title}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          marginBottom: 6,
+          width: "100%",
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>
           {title}
         </div>
-        <button
-          onClick={() => setExpanded((prev) => !prev)}
-          aria-label={expanded ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
-          title={expanded ? `Collapse ${title}` : `Expand ${title}`}
+        <span
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -485,8 +538,8 @@ function SingleLineTagSection({
           }}
         >
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        </button>
-      </div>
+        </span>
+      </button>
       {expanded && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {tags.map((tag) => (

@@ -11,6 +11,7 @@ import { PopupModal } from "@/components/ui/PopupModal"
 import { timeAgo } from "@/lib/utils/format"
 import { getErrorMessage } from "@/lib/utils/errors"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
+import { hasActiveUnlock } from "@/lib/chatUnlocks"
 import { blockUser } from "@/lib/blocks"
 import { markChatAsRead } from "@/lib/badges"
 import type { Message, Profile, Card } from "@/types"
@@ -145,17 +146,9 @@ export default function ChatConversationPage() {
     setMyCard(myCard)
     setTheirCard(theirCard)
 
-    // Check if user has chat unlock
-    const { data: unlock } = await supabase
-      .from("chat_unlocks")
-      .select("*")
-      .eq("user_id", user!.id)
-      .eq("looking_for_category", chat.looking_for_category)
-      .gt("expires_at", new Date().toISOString())
-      .limit(1)
-      .single()
+    const unlocked = await hasActiveUnlock(supabase, user!.id, chat.looking_for_category, chat.target_gender)
 
-    if (!unlock) {
+    if (!unlocked) {
       setCanReply(false)
       setShowUnlockPrompt(true)
       setLoading(false)

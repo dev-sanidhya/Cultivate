@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/Spinner"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { getErrorMessage } from "@/lib/utils/errors"
+import { shouldEnableChatForCard } from "@/lib/chatUnlocks"
 import type { Card, FieldOption, Gender } from "@/types"
 
 interface CardFormData {
@@ -104,12 +105,20 @@ export default function EditCardPage() {
         return
       }
 
+      const nextLookingFor = hasChats ? card!.looking_for : data.looking_for
+      const nextLookingForGender = hasChats ? card!.looking_for_gender : data.looking_for_gender
+      const chatEnabled = await shouldEnableChatForCard(supabase, user!.id, {
+        looking_for: nextLookingFor,
+        looking_for_gender: nextLookingForGender,
+      })
+
       const { error } = await supabase.from("cards").update({
         age: parseInt(data.age),
         personality_types: data.personality_types,
         tagged_address: data.tagged_address,
-        looking_for: hasChats ? card!.looking_for : data.looking_for,
-        looking_for_gender: hasChats ? card!.looking_for_gender : data.looking_for_gender,
+        looking_for: nextLookingFor,
+        looking_for_gender: nextLookingForGender,
+        chat_enabled: chatEnabled,
         qualities: data.qualities,
         interests: data.interests,
         weakness: data.weakness,

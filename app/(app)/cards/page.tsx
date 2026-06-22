@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Star, RotateCcw } from "lucide-react"
+import { Plus, Star, RotateCcw, CircleX, Pencil } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { PersonalityCard } from "@/components/cards/PersonalityCard"
@@ -12,7 +12,8 @@ import { Spinner } from "@/components/ui/Spinner"
 import { CONTACT_WARNING_LIMIT } from "@/lib/utils/moderation"
 import { readStoredContactWarningCount, writeStoredContactWarningCount } from "@/lib/utils/contactWarnings"
 import { fetchOwnCardMetrics, type OwnCardMetricRow } from "@/lib/cardMetrics"
-import { enableChatForCategory } from "@/lib/chatFlow"
+import { fetchActivePrioritizationsForCards, type PrioritizationByCard } from "@/lib/cardPrioritizations"
+import { enableChatForCategory, isApprovedLookingForCategory } from "@/lib/chatUnlocks"
 import { resolveUnlockPricing } from "@/lib/pricing"
 import type { Card } from "@/types"
 
@@ -37,6 +38,7 @@ export default function CardsPage() {
   const [penaltyAmount, setPenaltyAmount] = useState("0")
   const [penaltyPaidAt, setPenaltyPaidAt] = useState<string | null>(null)
   const [penaltyModalOpen, setPenaltyModalOpen] = useState(false)
+  const [priorityByCard, setPriorityByCard] = useState<PrioritizationByCard>({})
 
   useEffect(() => {
     loadCards()
@@ -80,6 +82,10 @@ export default function CardsPage() {
     }
 
     const typedCards = (cardData ?? []) as Card[]
+    const activePrioritizations = await fetchActivePrioritizationsForCards(
+      supabase,
+      typedCards.map((card) => card.id),
+    )
 
     setCards(typedCards.map((card: Card) => {
       const metrics = metricsByCardId.get(card.id)
@@ -91,6 +97,7 @@ export default function CardsPage() {
         save_count: metrics.save_count ?? card.save_count,
       }
     }))
+    setPriorityByCard(activePrioritizations)
     if (profile) {
       const storedCount = readStoredContactWarningCount(user.id)
       const eventCount = Array.isArray(warningEvents) ? warningEvents.length : 0
@@ -154,6 +161,13 @@ export default function CardsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    const isApproved = await isApprovedLookingForCategory(supabase, card.looking_for)
+    if (!isApproved) {
+      toast.error("This Looking For option must be approved before chats can be unlocked.")
+      return
+    }
+
+    // Default-pricing fallback for unverified/custom categories (#31).
     const { durationDays: duration } = await resolveUnlockPricing(supabase, card.looking_for)
 
     // Unlock applies to the whole (category, gender); enable every same-category card.
@@ -279,12 +293,59 @@ export default function CardsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {cards.map((card) => (
             <div key={card.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingRight: 4 }}>
+                {!card.is_closed && card.is_public && (
+                  <button
+                    onClick={() => handleCloseCard(card)}
+                    aria-label="Close card"
+                    title="Close card"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--color-error)",
+                      background: "var(--color-error-bg)",
+                      padding: 0,
+                      borderRadius: "50%",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <CircleX size={16} />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleEditCard(card)}
+                  aria-label="Edit card"
+                  title="Edit card"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--color-text-secondary)",
+                    background: "var(--color-surface)",
+                    padding: 0,
+                    borderRadius: "50%",
+                    border: "1px solid var(--color-border)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Pencil size={16} />
+                </button>
+              </div>
               <PersonalityCard
                 card={card}
                 mode="own"
                 onUnlockChat={() => handleUnlockChat(card)}
                 onClose={() => handleCloseCard(card)}
                 onEdit={() => handleEditCard(card)}
+                showBrandMark
+                showOwnActionsInside={false}
+                prioritizationType={priorityByCard[card.id]?.plan_type ?? null}
               />
               {!card.is_closed && (
                 <button

@@ -14,23 +14,42 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-      setNotifications(data ?? [])
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-      // Mark all as read
-      await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", user!.id)
-        .eq("is_read", false)
+        const { data } = await supabase
+          .from("notifications")
+          .select("id, user_id, message, type, metadata, is_read, event_at, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
 
-      setLoading(false)
+        const allNotifications = (data ?? []) as Notification[]
+        const latestNotifications = allNotifications.slice(0, 7)
+        const oldNotificationIds = allNotifications.slice(7).map((notification) => notification.id)
+
+        if (oldNotificationIds.length > 0) {
+          await supabase
+            .from("notifications")
+            .delete()
+            .in("id", oldNotificationIds)
+        }
+
+        setNotifications(latestNotifications)
+
+        const latestIds = latestNotifications.map((notification) => notification.id)
+        if (latestIds.length > 0) {
+          // Mark the retained notifications as read.
+          await supabase
+            .from("notifications")
+            .update({ is_read: true })
+            .in("id", latestIds)
+            .eq("is_read", false)
+        }
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])

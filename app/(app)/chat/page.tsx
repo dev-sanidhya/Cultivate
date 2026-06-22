@@ -9,13 +9,15 @@ import { Spinner } from "@/components/ui/Spinner"
 import { PopupModal } from "@/components/ui/PopupModal"
 import { timeAgo } from "@/lib/utils/format"
 import { getChatCardsForViewer, type ChatCardRelation } from "@/lib/chat"
-import { markChatAsRead } from "@/lib/badges"
 import { formatLookingFor } from "@/lib/lookingFor"
+import { chatUnlockKey } from "@/lib/chatUnlocks"
+import { markChatAsRead } from "@/lib/badges"
 import type { Chat, ChatUnlock, Profile, Card, Message } from "@/types"
 
 interface ChatListItem {
   chat: Chat
   otherProfile: Profile
+  myCard: Card | null
   theirCard: Card | null
   lastMessage: Message | null
   unread: number
@@ -89,7 +91,7 @@ export default function ChatPage() {
         .eq("user_id", user.id),
       supabase
         .from("chat_unlocks")
-        .select("looking_for_category, expires_at")
+        .select("looking_for_category, target_gender, expires_at")
         .eq("user_id", user.id)
         .gt("expires_at", new Date().toISOString()),
     ])
@@ -97,8 +99,10 @@ export default function ChatPage() {
     const latestMessageByChat = new Map<string, Message>()
     const unreadCountByChat = new Map<string, number>()
     const lastReadByChat = new Map<string, string | null>()
-    const activeUnlockCategories = new Set(
-      ((unlocksData ?? []) as ChatUnlock[]).map((unlock) => unlock.looking_for_category),
+    const activeUnlockKeys = new Set(
+      ((unlocksData ?? []) as ChatUnlock[]).map((unlock) =>
+        chatUnlockKey(unlock.looking_for_category, unlock.target_gender),
+      ),
     )
 
     for (const read of (readsData ?? []) as { chat_id: string; last_read_at: string | null }[]) {
@@ -122,7 +126,7 @@ export default function ChatPage() {
     const items: ChatListItem[] = []
     for (const chat of chatRows) {
       const otherProfile = ((chat.initiator_id === user.id ? chat.recipient : chat.initiator) ?? null) as Profile | null
-      const { theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
+      const { myCard, theirCard } = getChatCardsForViewer(chat as ChatCardRelation, user.id)
 
       items.push({
         chat,
@@ -138,10 +142,11 @@ export default function ChatPage() {
           contact_penalty_paid_at: null,
           created_at: "",
         },
+        myCard,
         theirCard,
         lastMessage: latestMessageByChat.get(chat.id) ?? null,
         unread: unreadCountByChat.get(chat.id) ?? 0,
-        canOpen: activeUnlockCategories.has(chat.looking_for_category),
+        canOpen: activeUnlockKeys.has(chatUnlockKey(chat.looking_for_category, chat.target_gender)),
       })
     }
 
@@ -231,7 +236,7 @@ export default function ChatPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "0 16px" }}>
-          {chats.map(({ chat, otherProfile, theirCard, lastMessage, unread, canOpen }) => (
+          {chats.map(({ chat, otherProfile, myCard, theirCard, lastMessage, unread, canOpen }) => (
             <div
               key={chat.id}
               role="button"
@@ -323,7 +328,7 @@ export default function ChatPage() {
                       flexShrink: 0,
                     }}
                   >
-                    {theirCard ? formatLookingFor(theirCard.looking_for, theirCard.looking_for_gender) : ""}
+                    {myCard ? formatLookingFor(myCard.looking_for, myCard.looking_for_gender) : ""}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>

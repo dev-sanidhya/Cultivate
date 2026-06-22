@@ -54,13 +54,13 @@ export default function SubscriptionsPage() {
           />
           <OptionCard
             icon={<Crown size={20} />}
-            title="N-Prioritize Card"
+            title="N-Prioritization Card"
             description="Show your card at the top of relevant search results."
             onClick={() => setView({ prioritize: "N" })}
           />
           <OptionCard
             icon={<Star size={20} />}
-            title="S-Prioritize Card"
+            title="S-Prioritization Card"
             description="Top placement even when only gender and Looking For match."
             onClick={() => setView({ prioritize: "S" })}
           />
@@ -358,7 +358,6 @@ function PrioritizeView({ planType, onDone }: { planType: PrioritizationType; on
 
   useEffect(() => {
     const supabase = createClient()
-    setLoading(true)
     void (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -389,7 +388,7 @@ function PrioritizeView({ planType, onDone }: { planType: PrioritizationType; on
     })()
   }, [planType])
 
-  const title = planType === "N" ? "N-Prioritize" : "S-Prioritize"
+  const title = planType === "N" ? "N-Prioritization" : "S-Prioritization"
 
   async function handlePay() {
     if (!selectedPlan || !selectedCard) return
@@ -403,7 +402,7 @@ function PrioritizeView({ planType, onDone }: { planType: PrioritizationType; on
       toast.success(`${title} activated!`)
       onDone()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to prioritize card")
+      toast.error(e instanceof Error ? e.message : "Failed to activate prioritization")
     } finally {
       setPaying(false)
     }
@@ -422,7 +421,7 @@ function PrioritizeView({ planType, onDone }: { planType: PrioritizationType; on
     <div>
       <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{title} Card</h2>
       <p style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 16 }}>
-        Choose a plan, then pick the card to prioritize.
+        Choose a plan, then pick the card for prioritization.
       </p>
 
       {plans.length === 0 ? (
